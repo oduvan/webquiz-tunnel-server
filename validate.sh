@@ -95,9 +95,10 @@ echo "Checking YAML syntax..."
 
 # Check if yamllint is available
 if command -v yamllint &> /dev/null; then
-    if yamllint -d "{extends: default, rules: {line-length: {max: 120}}}" ansible/playbook.yml .github/workflows/deploy.yml 2>&1 | grep -q "error"; then
+    YAML_FILES="ansible/playbook.yml .github/workflows/deploy.yml"
+    if yamllint -d "{extends: default, rules: {line-length: {max: 120}}}" $YAML_FILES 2>&1 | grep -q "error"; then
         failure "YAML syntax errors found"
-        yamllint ansible/playbook.yml .github/workflows/deploy.yml 2>&1 | grep "error"
+        yamllint $YAML_FILES 2>&1 | grep "error"
     else
         success "YAML syntax is valid"
     fi
@@ -110,11 +111,12 @@ echo "Checking Ansible playbook syntax..."
 
 # Check if ansible-playbook is available
 if command -v ansible-playbook &> /dev/null; then
-    if ansible-playbook --syntax-check --inventory=localhost, ansible/playbook.yml &> /dev/null; then
+    PLAYBOOK_OUTPUT=$(ansible-playbook --syntax-check --inventory=localhost, ansible/playbook.yml 2>&1)
+    if [ $? -eq 0 ]; then
         success "Ansible playbook syntax is valid"
     else
         failure "Ansible playbook has syntax errors"
-        ansible-playbook --syntax-check --inventory=localhost, ansible/playbook.yml
+        echo "$PLAYBOOK_OUTPUT" | grep -E "(ERROR|error|fatal)"
     fi
 else
     warning "ansible-playbook not available, skipping Ansible validation"
