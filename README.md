@@ -79,20 +79,28 @@ Certbot will automatically:
 
 ### Creating Tunnels
 
-Users with authorized SSH keys can create tunnels:
+Users with authorized SSH keys can create tunnels. **Multiple tunnels are supported** - each tunnel uses a unique socket name:
 
 ```bash
-# Remote port forwarding to Unix socket
+# Create first tunnel: myapp
 ssh -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@server.example.com
+
+# Create second tunnel: api (in another terminal/session)
+ssh -N -R /var/run/tunnels/api.sock:localhost:3000 tunneluser@server.example.com
+
+# Create third tunnel: frontend (in another terminal/session)
+ssh -N -R /var/run/tunnels/frontend.sock:localhost:5000 tunneluser@server.example.com
 
 # Or using autossh for automatic reconnection
 autossh -M 0 -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@server.example.com \
   -o "ServerAliveInterval=60" -o "ServerAliveCountMax=3"
 ```
 
-The application will then be accessible at:
+Each application will be accessible at its own URL path:
 ```
-https://server.example.com/wsaio/myapp/
+https://server.example.com/wsaio/myapp/     → localhost:8080
+https://server.example.com/wsaio/api/       → localhost:3000
+https://server.example.com/wsaio/frontend/  → localhost:5000
 ```
 
 ## Server Configuration

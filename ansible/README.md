@@ -23,6 +23,39 @@ ansible/
 └── host_vars/               # (Empty, for host-specific variables)
 ```
 
+## Templates vs Static Files
+
+The nginx configuration uses a **Jinja2 template** (`nginx-tunnel-proxy.conf.j2`) instead of a static file to:
+
+1. **Inject Ansible variables**: 
+   - `{{ tunnel_socket_dir }}` - dynamically sets the socket directory path
+   - `{{ nginx_proxy_timeout }}` - configurable timeout values
+   - `{{ nginx_websocket_timeout }}` - customizable WebSocket timeouts
+
+2. **Enable environment-specific configuration**: Different deployments can override variables without modifying the template
+
+3. **Maintain consistency**: Variables defined once in `playbook.yml` are used throughout the configuration
+
+The template approach allows the same playbook to work across different environments by simply changing variable values.
+
+## Multiple Tunnels Support
+
+The nginx configuration supports **unlimited concurrent tunnels** using a regex-based location block:
+
+```nginx
+location ~ ^/wsaio/([^/]+)/(.*)$ {
+    set $socket_name $1;
+    proxy_pass http://unix:/var/run/tunnels/$socket_name.sock:/$2;
+}
+```
+
+This pattern dynamically routes requests:
+- `/wsaio/app1/api/data` → `/var/run/tunnels/app1.sock`
+- `/wsaio/app2/health` → `/var/run/tunnels/app2.sock`
+- `/wsaio/service3/ws` → `/var/run/tunnels/service3.sock`
+
+No nginx reconfiguration is needed when adding new tunnels.
+
 ## Playbook Details
 
 ### Variables
