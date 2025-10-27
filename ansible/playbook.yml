@@ -1,0 +1,151 @@
+---
+- name: Configure WebQuiz Tunnel Server
+  hosts: localhost
+  become: yes
+  connection: local
+
+  vars:
+    tunnel_user: tunneluser
+    tunnel_group: tunneluser
+    tunnel_socket_dir: /var/run/tunnels
+    ssh_keys_dir: "{{ playbook_dir }}/files/ssh_keys"
+    nginx_proxy_timeout: 300
+    nginx_websocket_timeout: 3600
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - nginx
+          - certbot
+          - python3-certbot-nginx
+          - openssh-server
+        state: present
+
+    - name: Create tunnel user
+      user:
+        name: "{{ tunnel_user }}"
+        shell: /bin/bash
+        create_home: yes
+        state: present
+
+    - name: Create socket directory
+      file:
+        path: "{{ tunnel_socket_dir }}"
+        state: directory
+        owner: "{{ tunnel_user }}"
+        group: "{{ tunnel_group }}"
+        mode: '0755'
+
+    - name: Create .ssh directory for tunnel user
+      file:
+        path: "/home/{{ tunnel_user }}/.ssh"
+        state: directory
+        owner: "{{ tunnel_user }}"
+        group: "{{ tunnel_group }}"
+        mode: '0700'
+
+    - name: Collect SSH public keys
+      find:
+        paths: "{{ ssh_keys_dir }}"
+        patterns: "*.pub"
+      register: ssh_keys
+      delegate_to: localhost
+      become: no
+
+    - name: Add authorized keys for tunnel user
+      authorized_key:
+        user: "{{ tunnel_user }}"
+        key: "{{ lookup('file', item.path) }}"
+        state: present
+      loop: "{{ ssh_keys.files }}"
+      when: ssh_keys.files | length > 0
+
+    - name: Configure SSH for long-lived connections
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Tunnel Configuration"
+        block: |
+          ClientAliveInterval 60
+          ClientAliveCountMax 10
+          TCPKeepAlive yes
+          MaxSessions 100
+          MaxStartups 100:30:200
+      notify: restart sshd
+
+    - name: Configure system limits
+      blockinfile:
+        path: /etc/security/limits.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Tunnel Limits"
+        block: |
+          {{ tunnel_user }}    soft    nofile    65536
+          {{ tunnel_user }}    hard    nofile    65536
+          {{ tunnel_user }}    soft    nproc     4096
+          {{ tunnel_user }}    hard    nproc     4096
+          *                    soft    nofile    65536
+          *                    hard    nofile    65536
+
+    - name: Configure sysctl for network tuning
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - {name: 'fs.file-max', value: '2097152'}
+        - {name: 'net.core.somaxconn', value: '4096'}
+        - {name: 'net.ipv4.tcp_max_syn_backlog', value: '4096'}
+        - {name: 'net.ipv4.ip_local_port_range', value: '1024 65535'}
+        - {name: 'net.ipv4.tcp_tw_reuse', value: '1'}
+        - {name: 'net.ipv4.tcp_fin_timeout', value: '30'}
+        - {name: 'net.ipv4.tcp_keepalive_time', value: '600'}
+        - {name: 'net.ipv4.tcp_keepalive_intvl', value: '60'}
+        - {name: 'net.ipv4.tcp_keepalive_probes', value: '10'}
+
+    - name: Create nginx configuration for tunnel proxy
+      template:
+        src: nginx-tunnel-proxy.conf.j2
+        dest: /etc/nginx/sites-available/tunnel-proxy
+        mode: '0644'
+      notify: reload nginx
+
+    - name: Enable nginx tunnel proxy site
+      file:
+        src: /etc/nginx/sites-available/tunnel-proxy
+        dest: /etc/nginx/sites-enabled/tunnel-proxy
+        state: link
+      notify: reload nginx
+
+    - name: Remove default nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: reload nginx
+
+    - name: Ensure nginx is started and enabled
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Ensure sshd is started and enabled
+      service:
+        name: sshd
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded
