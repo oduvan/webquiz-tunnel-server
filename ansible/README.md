@@ -13,6 +13,8 @@ ansible/
 ├── ansible.cfg              # Ansible configuration
 ├── playbook.yml             # Main playbook
 ├── files/
+│   ├── scripts/             # Maintenance scripts
+│   │   └── cleanup-sockets.sh   # Socket cleanup script
 │   └── ssh_keys/            # SSH public keys for tunnel users
 │       ├── README.md
 │       └── *.pub            # Individual public key files
@@ -120,6 +122,13 @@ The playbook uses the following variables (defined in `playbook.yml`):
    - Enables and starts nginx
    - Enables and starts sshd
    - Configures automatic restart/reload handlers
+
+11. **Socket Cleanup Automation**
+   - Installs lsof utility for socket monitoring
+   - Deploys cleanup script to `/usr/local/bin/cleanup-sockets.sh`
+   - Sets up cron job running every 5 minutes
+   - Automatically removes inactive socket files without SSH connections
+   - Logs cleanup activities to `/var/log/tunnel-cleanup.log`
 
 ## Running the Playbook
 

@@ -170,14 +170,29 @@ Optimized for high-concurrency network operations:
 │       └── deploy.yml          # GitHub Actions deployment workflow
 ├── ansible/
 │   ├── files/
+│   │   ├── scripts/            # Maintenance scripts
+│   │   │   └── cleanup-sockets.sh  # Socket cleanup cron script
 │   │   └── ssh_keys/           # SSH public keys for tunnel users
 │   │       ├── README.md
 │   │       └── *.pub           # Public key files
 │   ├── templates/
-│   │   └── nginx-tunnel-proxy.conf.j2  # Nginx configuration template
+│   │   ├── nginx-tunnel-proxy.conf.j2  # Nginx configuration template
+│   │   └── tunnel_config.yaml.j2       # Tunnel configuration YAML
 │   └── playbook.yml            # Main Ansible playbook
 └── README.md                   # This file
 ```
+
+## Automated Maintenance
+
+### Socket Cleanup
+
+A cron job runs every 5 minutes to check and remove inactive socket files:
+
+- **Script**: `/usr/local/bin/cleanup-sockets.sh`
+- **Schedule**: Every 5 minutes (`*/5 * * * *`)
+- **Log**: `/var/log/tunnel-cleanup.log`
+
+The script uses `lsof` to detect sockets without active SSH connections and removes them automatically. This prevents stale socket files from accumulating when tunnels disconnect unexpectedly.
 
 ## Security Considerations
 

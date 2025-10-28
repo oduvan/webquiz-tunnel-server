@@ -160,6 +160,37 @@
         state: started
         enabled: yes
 
+    - name: Install lsof for socket checking
+      apt:
+        name: lsof
+        state: present
+
+    - name: Deploy socket cleanup script
+      copy:
+        src: scripts/cleanup-sockets.sh
+        dest: /usr/local/bin/cleanup-sockets.sh
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Create log file for cleanup script
+      file:
+        path: /var/log/tunnel-cleanup.log
+        state: touch
+        mode: '0644'
+        owner: root
+        group: root
+        modification_time: preserve
+        access_time: preserve
+
+    - name: Setup cron job for socket cleanup
+      cron:
+        name: "Cleanup inactive tunnel sockets"
+        minute: "*/5"
+        job: "/usr/local/bin/cleanup-sockets.sh"
+        user: root
+        state: present
+
   handlers:
     - name: restart sshd
       service:
