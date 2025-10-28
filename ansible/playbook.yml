@@ -107,6 +107,14 @@
         - {name: 'net.ipv4.tcp_keepalive_intvl', value: '60'}
         - {name: 'net.ipv4.tcp_keepalive_probes', value: '10'}
 
+    - name: Create tunnel configuration YAML file
+      template:
+        src: tunnel_config.yaml.j2
+        dest: /var/www/html/tunnel_config.yaml
+        mode: '0644'
+        owner: www-data
+        group: www-data
+
     - name: Create nginx configuration for tunnel proxy
       template:
         src: nginx-tunnel-proxy.conf.j2

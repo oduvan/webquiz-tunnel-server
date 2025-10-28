@@ -103,6 +103,22 @@ https://server.example.com/wsaio/api/       → localhost:3000
 https://server.example.com/wsaio/frontend/  → localhost:5000
 ```
 
+### Server Configuration Information
+
+The server provides a static configuration file at `/tunnel_config.yaml` with connection details:
+
+```bash
+# Access the configuration
+curl https://server.example.com/tunnel_config.yaml
+```
+
+This file contains:
+- SSH username for tunnel connections
+- Socket directory path
+- Base URL for accessing tunnels
+- Usage examples
+- Timeout configuration
+
 ## Server Configuration
 
 ### Nginx Configuration

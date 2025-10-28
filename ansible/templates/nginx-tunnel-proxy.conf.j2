@@ -57,6 +57,13 @@ server {
         return 200 "OK\n";
         add_header Content-Type text/plain;
     }
+
+    # Tunnel configuration file
+    location = /tunnel_config.yaml {
+        root /var/www/html;
+        add_header Content-Type application/x-yaml;
+        add_header Access-Control-Allow-Origin *;
+    }
 }
 
 # HTTPS server configuration (uncomment after Let's Encrypt setup)
@@ -107,5 +114,12 @@ server {
 #         access_log off;
 #         return 200 "OK\n";
 #         add_header Content-Type text/plain;
+#     }
+# 
+#     # Tunnel configuration file
+#     location = /tunnel_config.yaml {
+#         root /var/www/html;
+#         add_header Content-Type application/x-yaml;
+#         add_header Access-Control-Allow-Origin *;
 #     }
 # }

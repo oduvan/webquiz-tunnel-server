@@ -17,7 +17,8 @@ ansible/
 │       ├── README.md
 │       └── *.pub            # Individual public key files
 ├── templates/
-│   └── nginx-tunnel-proxy.conf.j2  # Nginx configuration template
+│   ├── nginx-tunnel-proxy.conf.j2  # Nginx configuration template
+│   └── tunnel_config.yaml.j2       # Tunnel configuration YAML template
 ├── roles/                   # (Empty, for future role-based organization)
 ├── group_vars/              # (Empty, for group-specific variables)
 └── host_vars/               # (Empty, for host-specific variables)
@@ -102,13 +103,19 @@ The playbook uses the following variables (defined in `playbook.yml`):
    - Configures TCP keepalive and connection tracking
    - Increases socket queue sizes
 
-8. **Nginx Configuration**
+8. **Tunnel Configuration File**
+   - Creates `/var/www/html/tunnel_config.yaml` with server information
+   - Contains username, socket directory, base URL, and usage examples
+   - Served by nginx at `/tunnel_config.yaml`
+
+9. **Nginx Configuration**
    - Deploys nginx configuration from template
    - Configures proxy to Unix sockets
    - Sets up WebSocket support
    - Configures timeouts and buffering
+   - Serves tunnel configuration file
 
-9. **Service Management**
+10. **Service Management**
    - Enables and starts nginx
    - Enables and starts sshd
    - Configures automatic restart/reload handlers
