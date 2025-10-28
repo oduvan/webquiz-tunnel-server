@@ -78,6 +78,19 @@
           MaxStartups 100:30:200
       notify: restart sshd
 
+    - name: Restrict tunnel user to tunneling only
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Tunnel User Restrictions"
+        block: |
+          Match User {{ tunnel_user }}
+              PermitTTY no
+              X11Forwarding no
+              AllowAgentForwarding no
+              AllowTcpForwarding remote
+              ForceCommand /bin/false
+      notify: restart sshd
+
     - name: Configure system limits
       blockinfile:
         path: /etc/security/limits.conf

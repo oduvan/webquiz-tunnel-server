@@ -92,6 +92,7 @@ The playbook uses the following variables (defined in `playbook.yml`):
    - Configures ClientAliveInterval and ClientAliveCountMax
    - Increases MaxSessions and MaxStartups
    - Enables TCP keepalive
+   - Restricts tunnel user to tunneling only (no shell, no command execution)
 
 6. **System Limits**
    - Increases file descriptor limits (65,536)
@@ -244,6 +245,28 @@ ansible-playbook -vvv playbook.yml
 - Regularly review authorized_keys for the tunnel user
 - Monitor system logs for unauthorized access attempts
 - Keep Ansible and system packages updated
+
+### Tunnel User Security Restrictions
+
+The `tunneluser` account is hardened with the following SSH restrictions:
+
+```
+Match User tunneluser
+    PermitTTY no                  # No interactive terminal
+    X11Forwarding no              # No X11 forwarding
+    AllowAgentForwarding no       # No SSH agent forwarding
+    AllowTcpForwarding remote     # Only remote port forwarding (tunnels)
+    ForceCommand /bin/false       # No command execution
+```
+
+**What this means:**
+- ✓ User can create SSH tunnels (remote port forwarding)
+- ✗ User cannot get an interactive shell
+- ✗ User cannot execute commands on the server
+- ✗ User cannot forward X11 or SSH agent
+- ✗ User cannot do local port forwarding
+
+This ensures the account is strictly limited to its intended purpose: creating reverse SSH tunnels.
 
 ## Future Enhancements
 

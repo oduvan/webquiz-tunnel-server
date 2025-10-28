@@ -135,6 +135,18 @@ This file contains:
 - **MaxSessions**: 100 concurrent sessions
 - **TCPKeepAlive**: Enabled
 
+**Security Restrictions for Tunnel User:**
+- **No Interactive Shell**: PermitTTY disabled
+- **Tunneling Only**: AllowTcpForwarding set to remote only
+- **No Command Execution**: ForceCommand /bin/false
+- **No X11/Agent Forwarding**: Disabled for security
+
+The `tunneluser` account is restricted to SSH tunnel operations only and cannot:
+- Log in with an interactive shell
+- Execute commands directly
+- Forward X11 or SSH agent
+- **TCPKeepAlive**: Enabled
+
 ### System Limits
 
 - **File Descriptors**: 65,536 per user
