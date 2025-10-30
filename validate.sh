@@ -169,7 +169,7 @@ if [ -f "ansible/templates/nginx-tunnel-proxy.conf.j2" ]; then
     fi
     
     # Check if the regex allows optional trailing slash
-    if grep 'location ~' ansible/templates/nginx-tunnel-proxy.conf.j2 | grep -qF '/?'; then
+    if grep -qF 'location ~ ^/wsaio/([^/]+)/?(.*)$' ansible/templates/nginx-tunnel-proxy.conf.j2; then
         success "Nginx template URL pattern supports optional trailing slash"
     else
         failure "Nginx template URL pattern does not support optional trailing slash"
