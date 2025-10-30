@@ -30,12 +30,28 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           script_stop: true
           script: |
+            # Wait for dpkg lock to be released (handles unattended-upgrade conflicts)
+            wait_for_lock() {
+              echo "Waiting for dpkg lock to be released..."
+              while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+                    sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || \
+                    sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+                echo "Lock is held, waiting 5 seconds..."
+                sleep 5
+              done
+              echo "Lock released, proceeding..."
+            }
+
             # Install Ansible if not present
             if ! command -v ansible-pull &> /dev/null; then
               echo "Installing Ansible..."
+              wait_for_lock
               sudo apt-get update
+              wait_for_lock
               sudo apt-get install -y software-properties-common
+              wait_for_lock
               sudo apt-add-repository --yes --update ppa:ansible/ansible
+              wait_for_lock
               sudo apt-get install -y ansible
             fi
 
