@@ -37,7 +37,7 @@
 │  │         Socket Directory: /var/run/tunnels/              │  │
 │  │                                                           │  │
 │  │  • myapp.sock  ◄─── tunneluser creates sockets here     │  │
-│  │  • test.sock                                             │  │
+│  │  • test         (with or without .sock extension)        │  │
 │  │  • api.sock                                              │  │
 │  │                                                           │  │
 │  │  Permissions: tunneluser:tunneluser (755)                │  │
@@ -50,10 +50,14 @@
 │  │  URL Pattern Matching:                                   │  │
 │  │  /wsaio/{socket_name}/path → unix socket proxy          │  │
 │  │                                                           │  │
-│  │  Example:                                                │  │
-│  │  /wsaio/myapp/api/users                                  │  │
+│  │  Examples:                                               │  │
+│  │  /wsaio/myapp.sock/api/users                             │  │
 │  │      ↓                                                    │  │
 │  │  unix:/var/run/tunnels/myapp.sock:/api/users            │  │
+│  │                                                           │  │
+│  │  /wsaio/test/api/data                                    │  │
+│  │      ↓                                                    │  │
+│  │  unix:/var/run/tunnels/test:/api/data                   │  │
 │  │                                                           │  │
 │  │  • WebSocket Support: ✓                                  │  │
 │  │  • Timeout: 3600s (1 hour)                               │  │
@@ -151,9 +155,9 @@ User ← Persistent Connection ← Nginx ← Unix Socket ← SSH Tunnel ← Clie
 
 ```
 /var/run/tunnels/          # Socket directory
-├── myapp.sock             # Application sockets
-├── test.sock
-└── api.sock
+├── myapp.sock             # Application sockets (can be with or without .sock)
+├── test                   # Socket without extension
+└── api.sock               # Socket with extension
 
 /etc/nginx/
 ├── sites-available/

@@ -81,26 +81,32 @@ Certbot will automatically:
 
 Users with authorized SSH keys can create tunnels. **Multiple tunnels are supported** - each tunnel uses a unique socket name:
 
+**Note:** Socket files can be created with or without the `.sock` extension. The URL path must match the socket filename exactly.
+
 ```bash
-# Create first tunnel: myapp
+# Example 1: Create tunnel with .sock extension
 ssh -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@server.example.com
+# Accessible at: https://server.example.com/wsaio/myapp.sock/
 
-# Create second tunnel: api (in another terminal/session)
+# Example 2: Create tunnel without extension
+ssh -N -R /var/run/tunnels/myapp:localhost:8080 tunneluser@server.example.com
+# Accessible at: https://server.example.com/wsaio/myapp/
+
+# Multiple tunnels example
 ssh -N -R /var/run/tunnels/api.sock:localhost:3000 tunneluser@server.example.com
+ssh -N -R /var/run/tunnels/frontend:localhost:5000 tunneluser@server.example.com
 
-# Create third tunnel: frontend (in another terminal/session)
-ssh -N -R /var/run/tunnels/frontend.sock:localhost:5000 tunneluser@server.example.com
-
-# Or using autossh for automatic reconnection
+# Using autossh for automatic reconnection
 autossh -M 0 -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@server.example.com \
   -o "ServerAliveInterval=60" -o "ServerAliveCountMax=3"
 ```
 
-Each application will be accessible at its own URL path:
+Each application will be accessible at its own URL path matching the socket filename:
 ```
-https://server.example.com/wsaio/myapp/     → localhost:8080
-https://server.example.com/wsaio/api/       → localhost:3000
-https://server.example.com/wsaio/frontend/  → localhost:5000
+https://server.example.com/wsaio/myapp.sock/  → /var/run/tunnels/myapp.sock → localhost:8080
+https://server.example.com/wsaio/myapp/       → /var/run/tunnels/myapp → localhost:8080
+https://server.example.com/wsaio/api.sock/    → /var/run/tunnels/api.sock → localhost:3000
+https://server.example.com/wsaio/frontend/    → /var/run/tunnels/frontend → localhost:5000
 ```
 
 ### Server Configuration Information

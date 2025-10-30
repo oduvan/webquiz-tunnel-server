@@ -21,10 +21,11 @@ log_message "Starting socket cleanup check"
 # Counter for removed sockets
 removed_count=0
 
-# Iterate through all .sock files in the directory
-for socket_file in "$SOCKET_DIR"/*.sock; do
-    # Skip if no socket files exist
+# Iterate through all socket files in the directory
+for socket_file in "$SOCKET_DIR"/*; do
+    # Skip if no socket files exist or if it's not a socket
     [ -e "$socket_file" ] || continue
+    [ -S "$socket_file" ] || continue
     
     socket_name=$(basename "$socket_file")
     

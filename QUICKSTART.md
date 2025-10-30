@@ -35,11 +35,11 @@ Settings → Secrets and variables → Actions → New repository secret
 ## Testing
 
 ```bash
-# On client: Create test tunnel
+# On client: Create test tunnel (can use .sock extension or not)
 ssh -N -R /var/run/tunnels/test.sock:localhost:8080 tunneluser@server
 
-# In browser or curl
-curl https://server/wsaio/test/
+# In browser or curl (URL must match socket name exactly)
+curl https://server/wsaio/test.sock/
 ```
 
 ## Key Configuration

@@ -132,6 +132,8 @@ From a client machine with an authorized SSH key:
 python3 -m http.server 8080
 
 # In another terminal, create the tunnel
+# Note: socket name can be with or without .sock extension
+# URL path must match socket filename exactly
 ssh -v -N -R /var/run/tunnels/mytest.sock:localhost:8080 \
   -i ~/.ssh/tunnel_key \
   tunneluser@tunnel.example.com
@@ -139,16 +141,16 @@ ssh -v -N -R /var/run/tunnels/mytest.sock:localhost:8080 \
 
 #### Test Proxy Access
 
-Open a browser and navigate to:
+Open a browser and navigate to (URL must match socket filename):
 ```
-https://tunnel.example.com/wsaio/mytest/
+https://tunnel.example.com/wsaio/mytest.sock/
 ```
 
 You should see the directory listing from your Python HTTP server.
 
 **Test with curl:**
 ```bash
-curl https://tunnel.example.com/wsaio/mytest/
+curl https://tunnel.example.com/wsaio/mytest.sock/
 ```
 
 ### 6. Production Setup
