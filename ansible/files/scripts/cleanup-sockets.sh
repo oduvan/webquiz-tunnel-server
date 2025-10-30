@@ -21,11 +21,9 @@ log_message "Starting socket cleanup check"
 # Counter for removed sockets
 removed_count=0
 
-# Iterate through all .sock files in the directory
-for socket_file in "$SOCKET_DIR"/*.sock; do
-    # Skip if no socket files exist
-    [ -e "$socket_file" ] || continue
-    
+# Find all socket files in the directory (not just .sock files)
+# Use find with -type s to identify actual socket files
+while IFS= read -r -d '' socket_file; do
     socket_name=$(basename "$socket_file")
     
     # Check if the socket file has an active connection
@@ -42,7 +40,7 @@ for socket_file in "$SOCKET_DIR"/*.sock; do
             log_message "ERROR: Failed to remove $socket_name"
         fi
     fi
-done
+done < <(find "$SOCKET_DIR" -maxdepth 1 -type s -print0 2>/dev/null)
 
 log_message "Cleanup completed. Removed $removed_count inactive socket(s)"
 

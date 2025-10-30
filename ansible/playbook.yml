@@ -40,7 +40,14 @@
         state: directory
         owner: "{{ tunnel_user }}"
         group: "{{ tunnel_group }}"
-        mode: '0755'
+        mode: '2775'
+
+    - name: Add www-data user to tunnel group for socket access
+      user:
+        name: www-data
+        groups: "{{ tunnel_group }}"
+        append: yes
+      notify: reload nginx
 
     - name: Create .ssh directory for tunnel user
       file:
