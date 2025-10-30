@@ -96,6 +96,7 @@
               AllowAgentForwarding no
               AllowTcpForwarding remote
               ForceCommand /bin/false
+              StreamLocalBindMask 0117
       notify: restart sshd
 
     - name: Configure system limits
