@@ -108,7 +108,9 @@ https://server.example.com/wsaio/frontend/  → localhost:5000
 The server provides a static configuration file at `/tunnel_config.yaml` with connection details:
 
 ```bash
-# Access the configuration
+# Access the configuration (use http:// if SSL is not configured yet)
+curl http://server.example.com/tunnel_config.yaml
+# Or via HTTPS if SSL certificate is configured
 curl https://server.example.com/tunnel_config.yaml
 ```
 
@@ -116,13 +118,17 @@ Example output:
 ```yaml
 username: tunneluser
 socket_directory: /var/run/tunnels
-base_url: https://server.example.com/wsaio/
+base_url: http://192.168.1.100/wsaio/
+http_url: http://192.168.1.100/wsaio/
+https_url: https://server.example.com/wsaio/
 ```
 
 This file contains:
 - SSH username for tunnel connections
 - Socket directory path
-- Base URL for accessing tunnels
+- Base URL for accessing tunnels (HTTP by default, use HTTPS after SSL setup)
+- HTTP URL for non-SSL access (works with IP addresses)
+- HTTPS URL for SSL access (requires domain name and SSL certificate)
 
 ## Server Configuration
 

@@ -1,5 +1,9 @@
 ---
 username: {{tunnel_user}}
 socket_directory: {{tunnel_socket_dir}}
-base_url: https://{{ansible_fqdn if ansible_fqdn is defined else 'your-domain.com'}}/wsaio/
+# Primary base URL (use HTTPS if SSL is configured, otherwise use HTTP)
+base_url: http://{{ansible_default_ipv4.address if ansible_default_ipv4.address is defined else ansible_fqdn if ansible_fqdn is defined else 'your-server'}}/wsaio/
+# Alternative URLs (both HTTP and HTTPS for flexibility)
+http_url: http://{{ansible_default_ipv4.address if ansible_default_ipv4.address is defined else ansible_fqdn if ansible_fqdn is defined else 'your-server'}}/wsaio/
+https_url: https://{{ansible_fqdn if ansible_fqdn is defined else 'your-domain.com'}}/wsaio/
 
