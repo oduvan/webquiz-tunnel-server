@@ -1,11 +1,9 @@
 #!/bin/bash
 # Cleanup inactive socket files in the tunnel directory
 # This script removes socket files that don't have active SSH connections
-# and ensures proper permissions on active sockets
 
 SOCKET_DIR="/var/run/tunnels"
 LOG_FILE="/var/log/tunnel-cleanup.log"
-TUNNEL_GROUP="tunneluser"
 
 # Function to log messages
 log_message() {
@@ -18,12 +16,10 @@ if [ ! -d "$SOCKET_DIR" ]; then
     exit 1
 fi
 
-log_message "Starting socket cleanup and permission check"
+log_message "Starting socket cleanup check"
 
 # Counter for removed sockets
 removed_count=0
-# Counter for permission fixes
-permission_fixes=0
 
 # Find all socket files in the directory (not just .sock files)
 # Use find with -type s to identify actual socket files
@@ -34,35 +30,6 @@ while IFS= read -r -d '' socket_file; do
     # Use lsof to check if the socket is in use
     if lsof "$socket_file" >/dev/null 2>&1; then
         log_message "Socket $socket_name is active (has connections)"
-        
-        # Fix permissions if needed - ensure group has read/write access
-        current_perms=$(stat -c "%a" "$socket_file" 2>/dev/null)
-        if [ -n "$current_perms" ] && [ "${#current_perms}" -ge 3 ]; then
-            # Extract the last 3 digits (handles both 3 and 4 digit formats)
-            perms_3digit="${current_perms: -3}"
-            # Check if group has read and write permissions (check for 6 or 7 in group position)
-            group_perms="${perms_3digit:1:1}"
-            if [ "$group_perms" -ge 0 ] 2>/dev/null && [ "$group_perms" -lt 6 ]; then
-                log_message "Fixing permissions for $socket_name (current: $current_perms)"
-                if chmod g+rw "$socket_file" 2>/dev/null; then
-                    permission_fixes=$((permission_fixes + 1))
-                    log_message "Successfully fixed permissions for $socket_name"
-                else
-                    log_message "WARNING: Failed to fix permissions for $socket_name"
-                fi
-            fi
-        fi
-        
-        # Ensure the socket has the correct group
-        current_group=$(stat -c "%G" "$socket_file" 2>/dev/null)
-        if [ "$current_group" != "$TUNNEL_GROUP" ]; then
-            log_message "Fixing group ownership for $socket_name (current: $current_group)"
-            if chgrp "$TUNNEL_GROUP" "$socket_file" 2>/dev/null; then
-                log_message "Successfully fixed group ownership for $socket_name"
-            else
-                log_message "WARNING: Failed to fix group ownership for $socket_name"
-            fi
-        fi
     else
         # Socket exists but has no connections - remove it
         log_message "Removing inactive socket: $socket_name"
@@ -75,6 +42,6 @@ while IFS= read -r -d '' socket_file; do
     fi
 done < <(find "$SOCKET_DIR" -maxdepth 1 -type s -print0 2>/dev/null)
 
-log_message "Cleanup completed. Removed $removed_count inactive socket(s), fixed permissions on $permission_fixes socket(s)"
+log_message "Cleanup completed. Removed $removed_count inactive socket(s)"
 
 exit 0
