@@ -167,6 +167,13 @@ if [ -f "ansible/templates/nginx-tunnel-proxy.conf.j2" ]; then
     else
         failure "Nginx template missing WebSocket upgrade headers"
     fi
+    
+    # Check if the regex allows optional trailing slash
+    if grep -qF 'location ~ ^/wsaio/([^/]+)/?(.*)$' ansible/templates/nginx-tunnel-proxy.conf.j2; then
+        success "Nginx template URL pattern supports optional trailing slash"
+    else
+        failure "Nginx template URL pattern does not support optional trailing slash"
+    fi
 fi
 
 echo ""
