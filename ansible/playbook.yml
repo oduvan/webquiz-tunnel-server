@@ -154,9 +154,9 @@
         state: started
         enabled: yes
 
-    - name: Ensure sshd is started and enabled
+    - name: Ensure ssh is started and enabled
       service:
-        name: sshd
+        name: ssh
         state: started
         enabled: yes
 
@@ -194,7 +194,7 @@
   handlers:
     - name: restart sshd
       service:
-        name: sshd
+        name: ssh
         state: restarted
 
     - name: reload nginx
