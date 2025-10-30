@@ -112,12 +112,17 @@ The server provides a static configuration file at `/tunnel_config.yaml` with co
 curl https://server.example.com/tunnel_config.yaml
 ```
 
+Example output:
+```yaml
+username: tunneluser
+socket_directory: /var/run/tunnels
+base_url: https://server.example.com/wsaio/
+```
+
 This file contains:
 - SSH username for tunnel connections
 - Socket directory path
 - Base URL for accessing tunnels
-- Usage examples
-- Timeout configuration
 
 ## Server Configuration
 

@@ -1,31 +1,5 @@
 ---
-# WebQuiz Tunnel Server Configuration
-# This file provides information about how to connect and use the tunnel server
-
-# SSH connection details
 username: {{tunnel_user}}
-
-# Socket directory where tunnel connections are stored
 socket_directory: {{tunnel_socket_dir}}
-
-# Base URL for accessing tunnels via HTTPS
-# Format: https://<your-domain>/wsaio/<socket_name>/
-# Example: If domain is tunnel.example.com and socket is myapp.sock
-#          Access at: https://tunnel.example.com/wsaio/myapp/
 base_url: https://{{ansible_fqdn if ansible_fqdn is defined else 'your-domain.com'}}/wsaio/
 
-# Usage instructions
-usage:
-  create_tunnel: >-
-    ssh -N -R {{tunnel_socket_dir}}/<socket_name>.sock:localhost:<local_port>
-    {{tunnel_user}}@<server>
-  access_tunnel: "https://<server>/wsaio/<socket_name>/"
-  example: >-
-    ssh -N -R {{tunnel_socket_dir}}/myapp.sock:localhost:8080
-    {{tunnel_user}}@tunnel.example.com
-
-# Configuration details
-configuration:
-  max_sessions: 100
-  websocket_timeout: {{nginx_websocket_timeout}}
-  proxy_timeout: {{nginx_proxy_timeout}}
