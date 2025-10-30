@@ -96,6 +96,9 @@
               AllowAgentForwarding no
               AllowTcpForwarding remote
               ForceCommand /bin/false
+              # StreamLocalBindMask 0117 sets socket permissions to 0660 (owner+group read/write)
+              # This allows nginx (www-data user in tunneluser group) to access SSH-created sockets
+              StreamLocalBindMask 0117
       notify: restart sshd
 
     - name: Configure system limits
