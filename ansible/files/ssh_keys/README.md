@@ -27,7 +27,7 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user@host
 
 After adding a key here, the user can create a tunnel with:
 ```bash
-ssh -N -L /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@server.example.com
+ssh -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@webquiz.space
 ```
 
 ## Security Notes

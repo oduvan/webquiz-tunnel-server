@@ -188,7 +188,7 @@ For custom server-specific tasks, create a new playbook that imports the main pl
 After the playbook runs, set up SSL certificates:
 
 ```bash
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d webquiz.space
 ```
 
 ### 2. Enable HTTPS in Nginx
@@ -207,13 +207,13 @@ sudo systemctl reload nginx
 From a client machine with an authorized SSH key:
 
 ```bash
-ssh -N -R /var/run/tunnels/test.sock:localhost:8000 tunneluser@server.example.com
+ssh -N -R /var/run/tunnels/test.sock:localhost:8000 tunneluser@webquiz.space
 ```
 
 ### 4. Verify Proxy
 
 ```bash
-curl http://your-domain.com/wsaio/test/
+curl http://webquiz.space/wsaio/test/
 ```
 
 ## Maintenance
