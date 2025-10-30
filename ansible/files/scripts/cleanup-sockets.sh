@@ -39,10 +39,12 @@ for socket_file in "$SOCKET_DIR"/*.sock; do
         
         # Fix permissions if needed - ensure group has read/write access
         current_perms=$(stat -c "%a" "$socket_file" 2>/dev/null)
-        if [ -n "$current_perms" ]; then
+        if [ -n "$current_perms" ] && [ "${#current_perms}" -ge 3 ]; then
+            # Extract the last 3 digits (handles both 3 and 4 digit formats)
+            perms_3digit="${current_perms: -3}"
             # Check if group has read and write permissions (check for 6 or 7 in group position)
-            group_perms=${current_perms:1:1}
-            if [ "$group_perms" -lt 6 ]; then
+            group_perms="${perms_3digit:1:1}"
+            if [ "$group_perms" -ge 0 ] 2>/dev/null && [ "$group_perms" -lt 6 ]; then
                 log_message "Fixing permissions for $socket_name (current: $current_perms)"
                 if chmod g+rw "$socket_file" 2>/dev/null; then
                     permission_fixes=$((permission_fixes + 1))
