@@ -10,12 +10,34 @@
     tunnel_group: tunneluser
     tunnel_socket_dir: /var/run/tunnels
     ssh_keys_dir: "{{ playbook_dir }}/files/ssh_keys"
+    users_dir: "{{ playbook_dir }}/files/users"
     nginx_proxy_timeout: 300
     nginx_websocket_timeout: 3600
     letsencrypt_email: admin@webquiz.xyz
     ssl_cert_path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+    www_root: /var/www/html
 
   tasks:
+    - name: Discover user directories
+      find:
+        paths: "{{ users_dir }}"
+        file_type: directory
+        recurse: no
+      register: user_directories
+      delegate_to: localhost
+      become: no
+
+    - name: Extract user list from directories
+      set_fact:
+        tunnel_users: >-
+          {{ user_directories.files |
+             map(attribute='path') |
+             map('basename') |
+             list }}
+
+    - name: Display discovered users
+      debug:
+        msg: "Discovered users: {{ tunnel_users }}"
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -28,16 +50,18 @@
           - certbot
           - python3-certbot-nginx
           - openssh-server
+          - lsof
         state: present
 
-    - name: Create tunnel user
+    # Legacy single-user support (backward compatibility)
+    - name: Create legacy tunnel user
       user:
         name: "{{ tunnel_user }}"
         shell: /bin/bash
         create_home: yes
         state: present
 
-    - name: Create socket directory
+    - name: Create legacy socket directory
       file:
         path: "{{ tunnel_socket_dir }}"
         state: directory
@@ -45,14 +69,14 @@
         group: "{{ tunnel_group }}"
         mode: '2775'
 
-    - name: Add www-data user to tunnel group for socket access
+    - name: Add www-data user to legacy tunnel group
       user:
         name: www-data
         groups: "{{ tunnel_group }}"
         append: yes
       notify: reload nginx
 
-    - name: Create .ssh directory for tunnel user
+    - name: Create .ssh directory for legacy tunnel user
       file:
         path: "/home/{{ tunnel_user }}/.ssh"
         state: directory
@@ -60,21 +84,87 @@
         group: "{{ tunnel_group }}"
         mode: '0700'
 
-    - name: Collect SSH public keys
+    - name: Collect legacy SSH public keys
       find:
         paths: "{{ ssh_keys_dir }}"
         patterns: "*.pub"
       register: ssh_keys
       delegate_to: localhost
       become: no
+      when: ssh_keys_dir is exists
 
-    - name: Add authorized keys for tunnel user
+    - name: Add authorized keys for legacy tunnel user
       authorized_key:
         user: "{{ tunnel_user }}"
         key: "{{ lookup('file', item.path) }}"
         state: present
       loop: "{{ ssh_keys.files }}"
-      when: ssh_keys.files | length > 0
+      when:
+        - ssh_keys.files is defined
+        - ssh_keys.files | length > 0
+
+    # Multi-user subdomain support
+    - name: Create user-specific tunnel accounts
+      user:
+        name: "{{ item }}"
+        shell: /bin/bash
+        create_home: yes
+        state: present
+      loop: "{{ tunnel_users }}"
+      when: tunnel_users | length > 0
+
+    - name: Create user-specific socket directories
+      file:
+        path: "{{ tunnel_socket_dir }}/{{ item }}"
+        state: directory
+        owner: "{{ item }}"
+        group: "{{ item }}"
+        mode: '2775'
+      loop: "{{ tunnel_users }}"
+      when: tunnel_users | length > 0
+
+    - name: Add www-data to user-specific groups
+      user:
+        name: www-data
+        groups: "{{ item }}"
+        append: yes
+      loop: "{{ tunnel_users }}"
+      when: tunnel_users | length > 0
+      notify: reload nginx
+
+    - name: Create .ssh directories for users
+      file:
+        path: "/home/{{ item }}/.ssh"
+        state: directory
+        owner: "{{ item }}"
+        group: "{{ item }}"
+        mode: '0700'
+      loop: "{{ tunnel_users }}"
+      when: tunnel_users | length > 0
+
+    - name: Collect SSH keys for each user
+      find:
+        paths: "{{ users_dir }}/{{ item }}"
+        patterns: "*.pub"
+      register: user_ssh_keys
+      loop: "{{ tunnel_users }}"
+      delegate_to: localhost
+      become: no
+      when: tunnel_users | length > 0
+
+    - name: Add authorized keys for each user
+      authorized_key:
+        user: "{{ user_key.0.item }}"
+        key: "{{ lookup('file', user_key.1.path) }}"
+        state: present
+      with_subelements:
+        - "{{ user_ssh_keys.results }}"
+        - files
+      loop_control:
+        loop_var: user_key
+      when:
+        - tunnel_users | length > 0
+        - user_ssh_keys.results is defined
 
     - name: Configure SSH for long-lived connections
       blockinfile:
@@ -88,10 +178,10 @@
           MaxStartups 100:30:200
       notify: restart sshd
 
-    - name: Restrict tunnel user to tunneling only
+    - name: Restrict legacy tunnel user to tunneling only
       blockinfile:
         path: /etc/ssh/sshd_config
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - Tunnel User Restrictions"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Legacy Tunnel User"
         block: |
           Match User {{ tunnel_user }}
               PermitTTY no
@@ -99,10 +189,25 @@
               AllowAgentForwarding no
               AllowTcpForwarding remote
               ForceCommand /bin/false
-              # StreamLocalBindMask 0117 sets socket permissions to 0660 (owner+group read/write)
-              # This allows nginx (www-data user in tunneluser group) to access SSH-created sockets
               StreamLocalBindMask 0117
       notify: restart sshd
+
+    - name: Restrict user-specific tunnel users
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - User Tunnel Restrictions"
+        block: |
+          {% for user in tunnel_users %}
+          Match User {{ user }}
+              PermitTTY no
+              X11Forwarding no
+              AllowAgentForwarding no
+              AllowTcpForwarding remote
+              ForceCommand /bin/false
+              StreamLocalBindMask 0117
+          {% endfor %}
+      notify: restart sshd
+      when: tunnel_users | length > 0
 
     - name: Configure system limits
       blockinfile:
@@ -113,6 +218,12 @@
           {{ tunnel_user }}    hard    nofile    65536
           {{ tunnel_user }}    soft    nproc     4096
           {{ tunnel_user }}    hard    nproc     4096
+          {% for user in tunnel_users %}
+          {{ user }}           soft    nofile    65536
+          {{ user }}           hard    nofile    65536
+          {{ user }}           soft    nproc     4096
+          {{ user }}           hard    nproc     4096
+          {% endfor %}
           *                    soft    nofile    65536
           *                    hard    nofile    65536
 
@@ -135,35 +246,139 @@
 
     - name: Determine server host for URLs
       set_fact:
-        tunnel_server_host: "{{ ansible_default_ipv4.address | default(ansible_fqdn | default('your-server')) }}"
+        server_host: >-
+          {{ ansible_default_ipv4.address |
+             default(ansible_fqdn | default('your-server')) }}
 
-    - name: Create tunnel configuration YAML file
-      template:
-        src: tunnel_config.yaml.j2
-        dest: /var/www/html/tunnel_config.yaml
+    - name: Ensure www root directory exists
+      file:
+        path: "{{ www_root }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Create default index.html for root domain
+      copy:
+        dest: "{{ www_root }}/index.html"
+        content: |
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>WebQuiz Tunnel Server</title>
+              <style>
+                  body {
+                      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                      max-width: 800px;
+                      margin: 50px auto;
+                      padding: 20px;
+                      background-color: #f5f5f5;
+                  }
+                  .container {
+                      background: white;
+                      padding: 40px;
+                      border-radius: 8px;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                  }
+                  h1 { color: #333; }
+                  p { color: #666; line-height: 1.6; }
+                  .info { background: #e3f2fd; padding: 15px; border-radius: 4px; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>WebQuiz Tunnel Server</h1>
+                  <p>This server provides secure SSH tunneling for WebQuiz applications.</p>
+                  <div class="info">
+                      <p><strong>To create a tunnel, use SSH remote forwarding:</strong></p>
+                      <code>ssh -N -R /var/run/tunnels/username/app:localhost:8080 username@{{ domain_name }}</code>
+                  </div>
+              </div>
+          </body>
+          </html>
         mode: '0644'
         owner: www-data
         group: www-data
 
-    - name: Check if SSL certificate exists
+    - name: Create legacy tunnel configuration YAML
+      template:
+        src: tunnel_config.yaml.j2
+        dest: "{{ www_root }}/tunnel_config.yaml"
+        mode: '0644'
+        owner: www-data
+        group: www-data
+
+    - name: Create user-specific tunnel config directories
+      file:
+        path: "{{ www_root }}/{{ item }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+      loop: "{{ tunnel_users }}"
+      when: tunnel_users | length > 0
+
+    - name: Create user-specific tunnel configuration files
+      template:
+        src: user_tunnel_config.yaml.j2
+        dest: "{{ www_root }}/{{ item }}/tunnel_config.yaml"
+        mode: '0644'
+        owner: www-data
+        group: www-data
+      loop: "{{ tunnel_users }}"
+      when: tunnel_users | length > 0
+
+    - name: Check if root SSL certificate exists
       stat:
         path: "{{ ssl_cert_path }}"
       register: ssl_cert_check
 
-    - name: Create nginx configuration for tunnel proxy
+    - name: Check user subdomain SSL certificates
+      stat:
+        path: "/etc/letsencrypt/live/{{ item }}.{{ domain_name }}/fullchain.pem"
+      register: user_ssl_checks
+      loop: "{{ tunnel_users }}"
+      when: tunnel_users | length > 0
+
+    - name: Create nginx configuration for root domain
       template:
-        src: nginx-tunnel-proxy.conf.j2
+        src: nginx-root-domain.conf.j2
         dest: /etc/nginx/sites-available/tunnel-proxy
         mode: '0644'
       vars:
         ssl_enabled: "{{ ssl_cert_check.stat.exists }}"
       notify: reload nginx
 
-    - name: Enable nginx tunnel proxy site
+    - name: Create nginx configurations for user subdomains
+      template:
+        src: nginx-user-subdomain.conf.j2
+        dest: "/etc/nginx/sites-available/{{ item.item }}-subdomain"
+        mode: '0644'
+      loop: "{{ user_ssl_checks.results }}"
+      vars:
+        username: "{{ item.item }}"
+        ssl_enabled: "{{ item.stat.exists }}"
+      when:
+        - tunnel_users | length > 0
+        - item.item is defined
+      notify: reload nginx
+
+    - name: Enable root domain nginx site
       file:
         src: /etc/nginx/sites-available/tunnel-proxy
         dest: /etc/nginx/sites-enabled/tunnel-proxy
         state: link
+      notify: reload nginx
+
+    - name: Enable user subdomain nginx sites
+      file:
+        src: "/etc/nginx/sites-available/{{ item }}-subdomain"
+        dest: "/etc/nginx/sites-enabled/{{ item }}-subdomain"
+        state: link
+      loop: "{{ tunnel_users }}"
+      when: tunnel_users | length > 0
       notify: reload nginx
 
     - name: Remove default nginx site
@@ -172,7 +387,7 @@
         state: absent
       notify: reload nginx
 
-    - name: Obtain SSL certificate with certbot (if not exists)
+    - name: Obtain SSL certificate for root domain
       command: >
         certbot --nginx
         --non-interactive
@@ -183,25 +398,59 @@
       register: certbot_result
       failed_when: false
 
-    - name: Display certbot result if certificate was obtained
-      debug:
-        msg: "Certbot result: {{ certbot_result }}"
-      when: not ssl_cert_check.stat.exists and certbot_result is defined
+    - name: Obtain SSL certificates for user subdomains
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email {{ letsencrypt_email }}
+        -d {{ item.item }}.{{ domain_name }}
+      loop: "{{ user_ssl_checks.results }}"
+      when:
+        - tunnel_users | length > 0
+        - item.item is defined
+        - not item.stat.exists
+      register: user_certbot_results
+      failed_when: false
 
-    - name: Re-check SSL certificate after certbot
+    - name: Re-check root SSL certificate
       stat:
         path: "{{ ssl_cert_path }}"
       register: ssl_cert_recheck
       when: not ssl_cert_check.stat.exists
 
-    - name: Update nginx configuration with HTTPS support (if certificate was obtained)
+    - name: Update root nginx with HTTPS support
       template:
-        src: nginx-tunnel-proxy.conf.j2
+        src: nginx-root-domain.conf.j2
         dest: /etc/nginx/sites-available/tunnel-proxy
         mode: '0644'
       vars:
         ssl_enabled: true
-      when: not ssl_cert_check.stat.exists and ssl_cert_recheck.stat.exists | default(false)
+      when:
+        - not ssl_cert_check.stat.exists
+        - ssl_cert_recheck.stat.exists | default(false)
+      notify: reload nginx
+
+    - name: Re-check user SSL certificates
+      stat:
+        path: "/etc/letsencrypt/live/{{ item }}.{{ domain_name }}/fullchain.pem"
+      register: user_ssl_rechecks
+      loop: "{{ tunnel_users }}"
+      when: tunnel_users | length > 0
+
+    - name: Update user nginx with HTTPS support
+      template:
+        src: nginx-user-subdomain.conf.j2
+        dest: "/etc/nginx/sites-available/{{ item.item }}-subdomain"
+        mode: '0644'
+      loop: "{{ user_ssl_rechecks.results }}"
+      vars:
+        username: "{{ item.item }}"
+        ssl_enabled: "{{ item.stat.exists }}"
+      when:
+        - tunnel_users | length > 0
+        - item.item is defined
+        - item.stat.exists | default(false)
       notify: reload nginx
 
     - name: Ensure nginx is started and enabled

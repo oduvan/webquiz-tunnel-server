@@ -1,0 +1,9 @@
+---
+username: {{ item }}
+socket_directory: {{ tunnel_socket_dir }}/{{ item }}
+# Primary base URL (use HTTPS if SSL is configured, otherwise use HTTP)
+base_url: https://{{ item }}.{{ domain_name }}/start/
+# Alternative URLs (both HTTP and HTTPS for flexibility)
+http_url: http://{{ item }}.{{ domain_name }}/start/
+https_url: https://{{ item }}.{{ domain_name }}/start/
+subdomain: {{ item }}.{{ domain_name }}
