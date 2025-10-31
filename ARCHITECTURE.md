@@ -69,7 +69,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Internet Users                           │
 │                                                                 │
-│  Browser → https://webquiz.space/wsaio/myapp/api/users         │
+│  Browser → https://webquiz.xyz/wsaio/myapp/api/users         │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -79,7 +79,7 @@
 ### 1. Client Creates Tunnel
 
 ```bash
-ssh -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@webquiz.space
+ssh -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@webquiz.xyz
 ```
 
 - SSH client authenticates using authorized public key
@@ -90,7 +90,7 @@ ssh -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@webquiz.space
 ### 2. User Makes Request
 
 ```
-GET https://webquiz.space/wsaio/myapp/api/users
+GET https://webquiz.xyz/wsaio/myapp/api/users
 ```
 
 ### 3. Nginx Processing

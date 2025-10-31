@@ -10,7 +10,7 @@ Settings → Secrets and variables → Actions → New repository secret
 
 | Secret | Value | Example |
 |--------|-------|---------|
-| SERVER_HOST | Your server hostname or IP | `webquiz.space` |
+| SERVER_HOST | Your server hostname or IP | `webquiz.xyz` |
 | SERVER_USER | SSH user with sudo | `ubuntu` or `root` |
 | SERVER_SSH_KEY | Private SSH key | Contents of `~/.ssh/id_rsa` |
 | SERVER_PORT | SSH port (optional) | `22` |
@@ -23,7 +23,7 @@ Settings → Secrets and variables → Actions → New repository secret
 4. **Configure SSL** on the server:
    ```bash
    ssh user@server
-   sudo certbot --nginx -d webquiz.space
+   sudo certbot --nginx -d webquiz.xyz
    ```
 5. **Enable HTTPS** in nginx:
    ```bash
@@ -36,10 +36,10 @@ Settings → Secrets and variables → Actions → New repository secret
 
 ```bash
 # On client: Create test tunnel
-ssh -N -R /var/run/tunnels/test.sock:localhost:8080 tunneluser@webquiz.space
+ssh -N -R /var/run/tunnels/test.sock:localhost:8080 tunneluser@webquiz.xyz
 
 # In browser or curl
-curl https://webquiz.space/wsaio/test/
+curl https://webquiz.xyz/wsaio/test/
 ```
 
 ## Key Configuration

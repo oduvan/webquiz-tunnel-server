@@ -26,14 +26,14 @@ https://server.com/wsaio/myapp/api/data → /var/run/tunnels/myapp.sock
 ### Prerequisites
 
 - Ubuntu/Debian server with SSH access
-- Domain name (webquiz.space) pointing to the server (for Let's Encrypt)
+- Domain name (webquiz.xyz) pointing to the server (for Let's Encrypt)
 - GitHub repository secrets configured
 
 ### Setup GitHub Secrets
 
 Configure the following secrets in your GitHub repository (Settings → Secrets and variables → Actions):
 
-- `SERVER_HOST`: Your server's hostname or IP address (e.g., webquiz.space)
+- `SERVER_HOST`: Your server's hostname or IP address (e.g., webquiz.xyz)
 - `SERVER_USER`: SSH user with sudo privileges (e.g., `ubuntu`, `root`)
 - `SERVER_SSH_KEY`: Private SSH key for server access
 - `SERVER_PORT`: (Optional) SSH port, defaults to 22
@@ -69,7 +69,7 @@ sudo ansible-pull \
 After initial deployment, obtain Let's Encrypt certificate:
 
 ```bash
-sudo certbot --nginx -d webquiz.space
+sudo certbot --nginx -d webquiz.xyz
 ```
 
 Certbot will automatically:
@@ -83,24 +83,24 @@ Users with authorized SSH keys can create tunnels. **Multiple tunnels are suppor
 
 ```bash
 # Create first tunnel: myapp
-ssh -N -R /var/run/tunnels/myapp:localhost:8080 tunneluser@webquiz.space
+ssh -N -R /var/run/tunnels/myapp:localhost:8080 tunneluser@webquiz.xyz
 
 # Create second tunnel: api (in another terminal/session)
-ssh -N -R /var/run/tunnels/api:localhost:3000 tunneluser@webquiz.space
+ssh -N -R /var/run/tunnels/api:localhost:3000 tunneluser@webquiz.xyz
 
 # Create third tunnel: frontend (in another terminal/session)
-ssh -N -R /var/run/tunnels/frontend:localhost:5000 tunneluser@webquiz.space
+ssh -N -R /var/run/tunnels/frontend:localhost:5000 tunneluser@webquiz.xyz
 
 # Or using autossh for automatic reconnection
-autossh -M 0 -N -R /var/run/tunnels/myapp:localhost:8080 tunneluser@webquiz.space \
+autossh -M 0 -N -R /var/run/tunnels/myapp:localhost:8080 tunneluser@webquiz.xyz \
   -o "ServerAliveInterval=60" -o "ServerAliveCountMax=3"
 ```
 
 Each application will be accessible at its own URL path:
 ```
-https://webquiz.space/wsaio/myapp/     → localhost:8080
-https://webquiz.space/wsaio/api/       → localhost:3000
-https://webquiz.space/wsaio/frontend/  → localhost:5000
+https://webquiz.xyz/wsaio/myapp/     → localhost:8080
+https://webquiz.xyz/wsaio/api/       → localhost:3000
+https://webquiz.xyz/wsaio/frontend/  → localhost:5000
 ```
 
 ### Server Configuration Information
@@ -109,18 +109,18 @@ The server provides a static configuration file at `/tunnel_config.yaml` with co
 
 ```bash
 # Access the configuration (use http:// if SSL is not configured yet)
-curl http://webquiz.space/tunnel_config.yaml
+curl http://webquiz.xyz/tunnel_config.yaml
 # Or via HTTPS if SSL certificate is configured
-curl https://webquiz.space/tunnel_config.yaml
+curl https://webquiz.xyz/tunnel_config.yaml
 ```
 
 Example output:
 ```yaml
 username: tunneluser
 socket_directory: /var/run/tunnels
-base_url: https://webquiz.space/wsaio/
-http_url: http://webquiz.space/wsaio/
-https_url: https://webquiz.space/wsaio/
+base_url: https://webquiz.xyz/wsaio/
+http_url: http://webquiz.xyz/wsaio/
+https_url: https://webquiz.xyz/wsaio/
 ```
 
 This file contains:
