@@ -1,15 +1,12 @@
 ---
-- name: Configure WebQuiz Tunnel Server
+- name: Configure WebQuiz Tunnel Server - Multi-User Subdomain Mode
   hosts: localhost
   become: yes
   connection: local
 
   vars:
     domain_name: webquiz.xyz
-    tunnel_user: tunneluser
-    tunnel_group: tunneluser
     tunnel_socket_dir: /var/run/tunnels
-    ssh_keys_dir: "{{ playbook_dir }}/files/ssh_keys"
     users_dir: "{{ playbook_dir }}/files/users"
     nginx_proxy_timeout: 300
     nginx_websocket_timeout: 3600
@@ -38,6 +35,7 @@
     - name: Display discovered users
       debug:
         msg: "Discovered users: {{ tunnel_users }}"
+
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -53,57 +51,6 @@
           - lsof
         state: present
 
-    # Legacy single-user support (backward compatibility)
-    - name: Create legacy tunnel user
-      user:
-        name: "{{ tunnel_user }}"
-        shell: /bin/bash
-        create_home: yes
-        state: present
-
-    - name: Create legacy socket directory
-      file:
-        path: "{{ tunnel_socket_dir }}"
-        state: directory
-        owner: "{{ tunnel_user }}"
-        group: "{{ tunnel_group }}"
-        mode: '2775'
-
-    - name: Add www-data user to legacy tunnel group
-      user:
-        name: www-data
-        groups: "{{ tunnel_group }}"
-        append: yes
-      notify: reload nginx
-
-    - name: Create .ssh directory for legacy tunnel user
-      file:
-        path: "/home/{{ tunnel_user }}/.ssh"
-        state: directory
-        owner: "{{ tunnel_user }}"
-        group: "{{ tunnel_group }}"
-        mode: '0700'
-
-    - name: Collect legacy SSH public keys
-      find:
-        paths: "{{ ssh_keys_dir }}"
-        patterns: "*.pub"
-      register: ssh_keys
-      delegate_to: localhost
-      become: no
-      failed_when: false
-
-    - name: Add authorized keys for legacy tunnel user
-      authorized_key:
-        user: "{{ tunnel_user }}"
-        key: "{{ lookup('file', item.path) }}"
-        state: present
-      loop: "{{ ssh_keys.files }}"
-      when:
-        - ssh_keys.files is defined
-        - ssh_keys.files | length > 0
-
-    # Multi-user subdomain support
     - name: Create user-specific tunnel accounts
       user:
         name: "{{ item }}"
@@ -178,20 +125,6 @@
           MaxStartups 100:30:200
       notify: restart sshd
 
-    - name: Restrict legacy tunnel user to tunneling only
-      blockinfile:
-        path: /etc/ssh/sshd_config
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - Legacy Tunnel User"
-        block: |
-          Match User {{ tunnel_user }}
-              PermitTTY no
-              X11Forwarding no
-              AllowAgentForwarding no
-              AllowTcpForwarding remote
-              ForceCommand /bin/false
-              StreamLocalBindMask 0117
-      notify: restart sshd
-
     - name: Generate user-specific SSH restrictions block
       template:
         src: ssh_user_restrictions.j2
@@ -242,54 +175,10 @@
         group: www-data
         mode: '0755'
 
-    - name: Create default index.html for root domain
+    - name: Deploy default index.html for root domain
       copy:
+        src: index.html
         dest: "{{ www_root }}/index.html"
-        content: |
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>WebQuiz Tunnel Server</title>
-              <style>
-                  body {
-                      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                      max-width: 800px;
-                      margin: 50px auto;
-                      padding: 20px;
-                      background-color: #f5f5f5;
-                  }
-                  .container {
-                      background: white;
-                      padding: 40px;
-                      border-radius: 8px;
-                      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                  }
-                  h1 { color: #333; }
-                  p { color: #666; line-height: 1.6; }
-                  .info { background: #e3f2fd; padding: 15px; border-radius: 4px; }
-              </style>
-          </head>
-          <body>
-              <div class="container">
-                  <h1>WebQuiz Tunnel Server</h1>
-                  <p>This server provides secure SSH tunneling for WebQuiz applications.</p>
-                  <div class="info">
-                      <p><strong>To create a tunnel, use SSH remote forwarding:</strong></p>
-                      <code>ssh -N -R /var/run/tunnels/username/app:localhost:8080 username@{{ domain_name }}</code>
-                  </div>
-              </div>
-          </body>
-          </html>
-        mode: '0644'
-        owner: www-data
-        group: www-data
-
-    - name: Create legacy tunnel configuration YAML
-      template:
-        src: tunnel_config.yaml.j2
-        dest: "{{ www_root }}/tunnel_config.yaml"
         mode: '0644'
         owner: www-data
         group: www-data

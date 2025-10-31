@@ -1,7 +1,7 @@
 #!/bin/bash
 # Cleanup inactive socket files in the tunnel directory
 # This script removes socket files that don't have active SSH connections
-# Supports both legacy single-user and multi-user subdirectory structure
+# Supports multi-user subdirectory structure
 
 SOCKET_DIR="/var/run/tunnels"
 LOG_FILE="/var/log/tunnel-cleanup.log"
@@ -43,12 +43,7 @@ check_socket() {
     fi
 }
 
-# Check sockets in the root tunnel directory (legacy support)
-while IFS= read -r -d '' socket_file; do
-    check_socket "$socket_file"
-done < <(find "$SOCKET_DIR" -maxdepth 1 -type s -print0 2>/dev/null)
-
-# Check sockets in user subdirectories (multi-user support)
+# Check sockets in user subdirectories
 if [ -d "$SOCKET_DIR" ]; then
     for user_dir in "$SOCKET_DIR"/*; do
         if [ -d "$user_dir" ]; then

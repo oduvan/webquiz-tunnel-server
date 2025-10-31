@@ -1,7 +1,3 @@
-{{ tunnel_user }}    soft    nofile    65536
-{{ tunnel_user }}    hard    nofile    65536
-{{ tunnel_user }}    soft    nproc     4096
-{{ tunnel_user }}    hard    nproc     4096
 {% for user in tunnel_users %}
 {{ user }}           soft    nofile    65536
 {{ user }}           hard    nofile    65536
