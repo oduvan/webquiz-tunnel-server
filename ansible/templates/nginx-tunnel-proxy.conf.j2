@@ -16,13 +16,62 @@ server {
         root /var/www/html;
     }
 
-{% if ssl_available %}
+{% if not ssl_available %}
+    # HTTPS not yet configured - serving on HTTP
+
+    # Proxy to Unix sockets - pattern: /start/{socket_name}/path or /start/{socket_name}
+    location ~ ^/start/([^/]+)/?(.*)$ {
+        set $socket_name $1;
+        set $socket_path $2;
+
+        proxy_pass http://unix:{{ tunnel_socket_dir }}/$socket_name:/$socket_path$is_args$args;
+        
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        
+        # Proxy headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Increased timeouts for long-lived connections
+        proxy_connect_timeout {{ nginx_proxy_timeout }}s;
+        proxy_send_timeout {{ nginx_websocket_timeout }}s;
+        proxy_read_timeout {{ nginx_websocket_timeout }}s;
+        
+        # Buffering settings for WebSocket
+        proxy_buffering off;
+        proxy_cache off;
+        
+        # Keep-alive
+        proxy_socket_keepalive on;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "OK\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Tunnel configuration file
+    location = /tunnel_config.yaml {
+        root /var/www/html;
+        add_header Content-Type application/x-yaml;
+        add_header Access-Control-Allow-Origin *;
+    }
+{% else %}
     # Redirect HTTP to HTTPS
     location / {
         return 301 https://$host$request_uri;
     }
+{% endif %}
 }
 
+{% if ssl_available %}
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
@@ -33,9 +82,6 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/webquiz.xyz/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-{% else %}
-    # HTTPS not yet configured - serving on HTTP only
-{% endif %}
 
     # Proxy to Unix sockets - pattern: /start/{socket_name}/path or /start/{socket_name}
     location ~ ^/start/([^/]+)/?(.*)$ {
@@ -82,4 +128,5 @@ server {
         add_header Access-Control-Allow-Origin *;
     }
 }
+{% endif %}
 
