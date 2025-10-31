@@ -13,7 +13,7 @@ echo ""
 echo "Checking user directories..."
 if [ -d "ansible/files/users" ]; then
     USER_COUNT=$(find ansible/files/users -mindepth 1 -maxdepth 1 -type d | wc -l)
-    echo "✓ Found $USER_COUNT user director(ies)"
+    echo "✓ Found $USER_COUNT user directories"
     
     for user_dir in ansible/files/users/*/; do
         if [ -d "$user_dir" ]; then

@@ -91,7 +91,7 @@
       register: ssh_keys
       delegate_to: localhost
       become: no
-      when: ssh_keys_dir is exists
+      failed_when: false
 
     - name: Add authorized keys for legacy tunnel user
       authorized_key:
@@ -192,40 +192,30 @@
               StreamLocalBindMask 0117
       notify: restart sshd
 
+    - name: Generate user-specific SSH restrictions block
+      template:
+        src: ssh_user_restrictions.j2
+        dest: /tmp/ssh_user_restrictions.conf
+      when: tunnel_users | length > 0
+
     - name: Restrict user-specific tunnel users
       blockinfile:
         path: /etc/ssh/sshd_config
         marker: "# {mark} ANSIBLE MANAGED BLOCK - User Tunnel Restrictions"
-        block: |
-          {% for user in tunnel_users %}
-          Match User {{ user }}
-              PermitTTY no
-              X11Forwarding no
-              AllowAgentForwarding no
-              AllowTcpForwarding remote
-              ForceCommand /bin/false
-              StreamLocalBindMask 0117
-          {% endfor %}
+        block: "{{ lookup('file', '/tmp/ssh_user_restrictions.conf') }}"
       notify: restart sshd
       when: tunnel_users | length > 0
+
+    - name: Generate system limits configuration
+      template:
+        src: system_limits.j2
+        dest: /tmp/system_limits.conf
 
     - name: Configure system limits
       blockinfile:
         path: /etc/security/limits.conf
         marker: "# {mark} ANSIBLE MANAGED BLOCK - Tunnel Limits"
-        block: |
-          {{ tunnel_user }}    soft    nofile    65536
-          {{ tunnel_user }}    hard    nofile    65536
-          {{ tunnel_user }}    soft    nproc     4096
-          {{ tunnel_user }}    hard    nproc     4096
-          {% for user in tunnel_users %}
-          {{ user }}           soft    nofile    65536
-          {{ user }}           hard    nofile    65536
-          {{ user }}           soft    nproc     4096
-          {{ user }}           hard    nproc     4096
-          {% endfor %}
-          *                    soft    nofile    65536
-          *                    hard    nofile    65536
+        block: "{{ lookup('file', '/tmp/system_limits.conf') }}"
 
     - name: Configure sysctl for network tuning
       sysctl:
