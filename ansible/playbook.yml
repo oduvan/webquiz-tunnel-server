@@ -234,12 +234,6 @@
         - {name: 'net.ipv4.tcp_keepalive_intvl', value: '60'}
         - {name: 'net.ipv4.tcp_keepalive_probes', value: '10'}
 
-    - name: Determine server host for URLs
-      set_fact:
-        server_host: >-
-          {{ ansible_default_ipv4.address |
-             default(ansible_fqdn | default('your-server')) }}
-
     - name: Ensure www root directory exists
       file:
         path: "{{ www_root }}"
