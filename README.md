@@ -66,16 +66,24 @@ sudo ansible-pull \
 
 ### SSL Certificate Setup
 
-After initial deployment, obtain Let's Encrypt certificate:
+The deployment automatically attempts to obtain a Let's Encrypt certificate if one doesn't already exist:
+
+1. **Initial Deployment**: Nginx is deployed with both HTTP and HTTPS server blocks configured
+2. **Certificate Acquisition**: Certbot automatically obtains SSL certificate using the `--nginx` method
+3. **Automatic Renewal**: Certbot is configured to automatically renew certificates via cron
+
+If automatic certificate acquisition fails, you can manually obtain the certificate:
 
 ```bash
 sudo certbot --nginx -d webquiz.xyz
 ```
 
-Certbot will automatically:
-- Obtain SSL certificate
-- Configure nginx for HTTPS
-- Set up automatic renewal
+**Prerequisites**: Ensure that:
+- The domain `webquiz.xyz` points to your server's IP address
+- Port 80 is accessible from the internet (required for Let's Encrypt validation)
+- Port 443 is accessible from the internet (required for HTTPS)
+
+**Certificate Renewal**: Certbot automatically sets up a cron job or systemd timer to renew certificates before they expire. No manual intervention is required for renewals.
 
 ### Creating Tunnels
 
@@ -108,10 +116,10 @@ https://webquiz.xyz/start/frontend/  → localhost:5000
 The server provides a static configuration file at `/tunnel_config.yaml` with connection details:
 
 ```bash
-# Access the configuration (use http:// if SSL is not configured yet)
-curl http://webquiz.xyz/tunnel_config.yaml
-# Or via HTTPS if SSL certificate is configured
+# Access the configuration via HTTPS (after SSL setup is complete)
 curl https://webquiz.xyz/tunnel_config.yaml
+# Or via HTTP (during initial setup before SSL certificates are obtained)
+curl http://webquiz.xyz/tunnel_config.yaml
 ```
 
 Example output:
