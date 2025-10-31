@@ -13,8 +13,6 @@
     nginx_proxy_timeout: 300
     nginx_websocket_timeout: 3600
     letsencrypt_email: admin@webquiz.xyz
-    ssl_rerun_flag: /var/lib/webquiz-tunnel/.ssl_setup_attempted
-    repository_url: https://github.com/oduvan/webquiz-tunnel-server.git
 
   tasks:
     - name: Update apt cache
@@ -138,15 +136,6 @@
       set_fact:
         tunnel_server_host: "{{ ansible_default_ipv4.address | default(ansible_fqdn | default('your-server')) }}"
 
-    - name: Check if SSL certificate exists
-      stat:
-        path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
-      register: ssl_cert_check
-
-    - name: Set SSL availability fact
-      set_fact:
-        ssl_available: "{{ ssl_cert_check.stat.exists }}"
-
     - name: Create tunnel configuration YAML file
       template:
         src: tunnel_config.yaml.j2
@@ -175,71 +164,32 @@
         state: absent
       notify: reload nginx
 
+    - name: Check if SSL certificate exists
+      stat:
+        path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+      register: ssl_cert_check
+
+    - name: Obtain SSL certificate with certbot (if not exists)
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email {{ letsencrypt_email }}
+        -d {{ domain_name }}
+      when: not ssl_cert_check.stat.exists
+      register: certbot_result
+      failed_when: false
+
+    - name: Display certbot result if certificate was obtained
+      debug:
+        msg: "Certbot result: {{ certbot_result }}"
+      when: not ssl_cert_check.stat.exists and certbot_result is defined
+
     - name: Ensure nginx is started and enabled
       service:
         name: nginx
         state: started
         enabled: yes
-
-    - name: Check if SSL setup was already attempted
-      stat:
-        path: "{{ ssl_rerun_flag }}"
-      register: ssl_flag_check
-
-    - name: Create flag directory
-      file:
-        path: /var/lib/webquiz-tunnel
-        state: directory
-        mode: '0755'
-      when: not ssl_available and not ssl_flag_check.stat.exists
-
-    - name: Obtain SSL certificate with certbot (if not exists and not already attempted)
-      command: >
-        certbot certonly --webroot
-        -w /var/www/html
-        --non-interactive
-        --agree-tos
-        --email {{ letsencrypt_email }}
-        -d {{ domain_name }}
-      when: not ssl_available and not ssl_flag_check.stat.exists
-      register: certbot_result
-      failed_when: false
-
-    - name: Log certbot result
-      debug:
-        msg: "Certbot result: {{ certbot_result }}"
-      when: not ssl_available and not ssl_flag_check.stat.exists
-
-    - name: Warn if certbot failed
-      debug:
-        msg: >
-          WARNING: Certbot failed to obtain SSL certificate. HTTPS will not be available.
-          Please check DNS configuration and ensure port 80 is accessible from the internet.
-          Error: {{ certbot_result.stderr | default('No error details available') }}
-      when: >
-        not ssl_available and
-        not ssl_flag_check.stat.exists and
-        certbot_result is defined and
-        certbot_result.rc != 0
-
-    - name: Create flag file to prevent re-attempts
-      file:
-        path: "{{ ssl_rerun_flag }}"
-        state: touch
-        mode: '0644'
-      when: not ssl_available and not ssl_flag_check.stat.exists
-
-    - name: Re-run playbook to enable HTTPS (if certificates were obtained)
-      command: >
-        ansible-pull
-        -U {{ repository_url }}
-        -i localhost,
-        ansible/playbook.yml
-      when: >
-        not ssl_available and
-        not ssl_flag_check.stat.exists and
-        certbot_result is defined and
-        certbot_result.rc == 0
 
     - name: Ensure ssh is started and enabled
       service:
