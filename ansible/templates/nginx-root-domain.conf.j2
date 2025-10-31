@@ -1,0 +1,55 @@
+# Nginx configuration for root domain ({{ domain_name }})
+# Serves static content only
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ domain_name }};
+
+    # Let's Encrypt challenges
+    location /.well-known/acme-challenge/ {
+        root {{ www_root }};
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "OK\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Static files
+    location / {
+        root {{ www_root }};
+        index index.html;
+        try_files $uri $uri/ =404;
+    }
+}
+
+{% if ssl_enabled | default(false) %}
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ domain_name }};
+
+    # SSL certificate paths (managed by certbot)
+    ssl_certificate /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ domain_name }}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "OK\n";
+        add_header Content-Type text/plain;
+    }
+
+    # Static files
+    location / {
+        root {{ www_root }};
+        index index.html;
+        try_files $uri $uri/ =404;
+    }
+}
+{% endif %}

@@ -4,21 +4,38 @@ This repository contains Ansible configuration for setting up a WebQuiz tunnel s
 
 ## Features
 
+- **Multi-User Subdomains**: Each user gets their own subdomain with isolated socket directory
 - **Nginx Reverse Proxy**: Proxies WebSocket and HTTP requests to Unix domain sockets
-- **Let's Encrypt SSL**: Automated HTTPS certificate management
-- **SSH Tunnel Support**: Dedicated user for creating secure SSH tunnels
+- **Let's Encrypt SSL**: Automated HTTPS certificate management per subdomain
+- **SSH Tunnel Support**: Dedicated SSH users for creating secure SSH tunnels
 - **High Performance**: Optimized system limits and timeouts for production workloads
 - **Automated Deployment**: GitHub Actions workflow for ansible-pull deployment
+- **Backward Compatible**: Legacy single-user mode still supported
 
 ## Architecture
 
-The server acts as a reverse proxy that routes requests from `/start/{socket_name}/path/` to Unix domain sockets at `/var/run/tunnels/{socket_name}.sock`.
+The server supports two modes:
 
-### Request Flow
+### Multi-User Mode (Recommended)
+
+Each user folder in `ansible/files/users/{username}/` creates:
+- SSH user: `{username}`
+- Subdomain: `{username}.webquiz.xyz`
+- Socket directory: `/var/run/tunnels/{username}/`
+- SSL certificate for the subdomain
 
 ```
 Client Request → Nginx (HTTPS) → Unix Socket → Application
-https://server.com/start/myapp/api/data → /var/run/tunnels/myapp.sock
+https://alice.webquiz.xyz/start/myapp/api/data → /var/run/tunnels/alice/myapp
+```
+
+### Legacy Mode (Backward Compatible)
+
+Single `tunneluser` with shared socket directory at `/var/run/tunnels/`.
+
+```
+Client Request → Nginx (HTTPS) → Unix Socket → Application
+https://webquiz.xyz/start/myapp/api/data → /var/run/tunnels/myapp
 ```
 
 ## Quick Start
@@ -57,69 +74,127 @@ sudo ansible-pull \
 
 ## Configuration
 
-### Adding SSH Keys for Tunnel Access
+### Multi-User Setup (Recommended)
 
-1. Add public SSH keys to `ansible/files/ssh_keys/`
-2. Name files descriptively (e.g., `username.pub`)
-3. Commit and push changes
-4. The deployment will automatically authorize these keys for the `tunneluser`
+Add users by creating directories in `ansible/files/users/`:
+
+```bash
+# Create a new user 'alice'
+mkdir ansible/files/users/alice
+
+# Add SSH public keys for alice
+cp alice-laptop.pub ansible/files/users/alice/
+cp alice-desktop.pub ansible/files/users/alice/
+
+# Commit and push
+git add ansible/files/users/alice/
+git commit -m "Add user alice"
+git push
+```
+
+After deployment:
+- User `alice` can SSH to create tunnels
+- Subdomain `alice.webquiz.xyz` is configured
+- SSL certificate for `alice.webquiz.xyz` is obtained
+- Socket directory `/var/run/tunnels/alice/` is created
+
+**Important**: Subdomain DNS records (wildcards or individual A records) must point to your server.
+
+### Creating Tunnels (Multi-User)
+
+Users create tunnels to their own subdomain:
+
+```bash
+# Alice creates a tunnel for her app
+ssh -N -R /var/run/tunnels/alice/myapp:localhost:8080 alice@webquiz.xyz
+
+# Access at: https://alice.webquiz.xyz/start/myapp/
+
+# Bob creates a tunnel for his app
+ssh -N -R /var/run/tunnels/bob/api:localhost:3000 bob@webquiz.xyz
+
+# Access at: https://bob.webquiz.xyz/start/api/
+```
+
+### Legacy Single-User Setup
+
+Add public SSH keys to `ansible/files/ssh_keys/`:
+
+```bash
+cp username.pub ansible/files/ssh_keys/
+git add ansible/files/ssh_keys/username.pub
+git commit -m "Add SSH key for username"
+git push
+```
+
+The deployment will authorize these keys for the `tunneluser`.
+
+### Creating Tunnels (Legacy Mode)
+
+```bash
+# Create tunnel
+ssh -N -R /var/run/tunnels/myapp:localhost:8080 tunneluser@webquiz.xyz
+
+# Access at: https://webquiz.xyz/start/myapp/
+```
 
 ### SSL Certificate Setup
 
-The deployment automatically attempts to obtain a Let's Encrypt certificate if one doesn't already exist:
+The deployment automatically obtains Let's Encrypt certificates:
 
-1. **Initial Deployment**: Nginx is deployed with both HTTP and HTTPS server blocks configured
-2. **Certificate Acquisition**: Certbot automatically obtains SSL certificate using the `--nginx` method
-3. **Automatic Renewal**: Certbot is configured to automatically renew certificates via cron
+**For Multi-User Setup:**
+- Root domain certificate: `webquiz.xyz`
+- User subdomain certificates: `alice.webquiz.xyz`, `bob.webquiz.xyz`, etc.
 
-If automatic certificate acquisition fails, you can manually obtain the certificate:
+**For Legacy Setup:**
+- Single certificate for `webquiz.xyz`
+
+**Certificate Process:**
+1. **Initial Deployment**: Nginx is deployed with HTTP server blocks
+2. **Certificate Acquisition**: Certbot automatically obtains SSL certificates
+3. **HTTPS Configuration**: Nginx is reconfigured with HTTPS support
+4. **Automatic Renewal**: Certbot sets up automatic renewal via cron
+
+Manual certificate acquisition (if needed):
 
 ```bash
+# Root domain
 sudo certbot --nginx -d webquiz.xyz
+
+# User subdomain
+sudo certbot --nginx -d alice.webquiz.xyz
 ```
 
-**Prerequisites**: Ensure that:
-- The domain `webquiz.xyz` points to your server's IP address
-- Port 80 is accessible from the internet (required for Let's Encrypt validation)
-- Port 443 is accessible from the internet (required for HTTPS)
+**Prerequisites**: 
+- The domain `webquiz.xyz` and all subdomains point to your server's IP
+- For multi-user: Use wildcard DNS (*.webquiz.xyz) or individual A records
+- Port 80 is accessible (required for Let's Encrypt validation)
+- Port 443 is accessible (required for HTTPS)
 
-**Certificate Renewal**: Certbot automatically sets up a cron job or systemd timer to renew certificates before they expire. No manual intervention is required for renewals.
-
-### Creating Tunnels
-
-Users with authorized SSH keys can create tunnels. **Multiple tunnels are supported** - each tunnel uses a unique socket name:
-
-```bash
-# Create first tunnel: myapp
-ssh -N -R /var/run/tunnels/myapp:localhost:8080 tunneluser@webquiz.xyz
-
-# Create second tunnel: api (in another terminal/session)
-ssh -N -R /var/run/tunnels/api:localhost:3000 tunneluser@webquiz.xyz
-
-# Create third tunnel: frontend (in another terminal/session)
-ssh -N -R /var/run/tunnels/frontend:localhost:5000 tunneluser@webquiz.xyz
-
-# Or using autossh for automatic reconnection
-autossh -M 0 -N -R /var/run/tunnels/myapp:localhost:8080 tunneluser@webquiz.xyz \
-  -o "ServerAliveInterval=60" -o "ServerAliveCountMax=3"
-```
-
-Each application will be accessible at its own URL path:
-```
-https://webquiz.xyz/start/myapp/     → localhost:8080
-https://webquiz.xyz/start/api/       → localhost:3000
-https://webquiz.xyz/start/frontend/  → localhost:5000
-```
+**Certificate Renewal**: Certbot automatically renews certificates via cron. No manual intervention needed.
 
 ### Server Configuration Information
 
-The server provides a static configuration file at `/tunnel_config.yaml` with connection details:
+Configuration files provide connection details:
 
+**Multi-User:**
 ```bash
-# Access the configuration via HTTPS (after SSL setup is complete)
+# User-specific configuration
+curl https://alice.webquiz.xyz/tunnel_config.yaml
+```
+
+Example output:
+```yaml
+username: alice
+socket_directory: /var/run/tunnels/alice
+base_url: https://alice.webquiz.xyz/start/
+subdomain: alice.webquiz.xyz
+```
+
+**Legacy:**
+```bash
+# Legacy configuration
 curl https://webquiz.xyz/tunnel_config.yaml
-# Or via HTTP (during initial setup before SSL certificates are obtained)
-curl http://webquiz.xyz/tunnel_config.yaml
 ```
 
 Example output:
@@ -127,15 +202,7 @@ Example output:
 username: tunneluser
 socket_directory: /var/run/tunnels
 base_url: https://webquiz.xyz/start/
-http_url: http://webquiz.xyz/start/
-https_url: https://webquiz.xyz/start/
 ```
-
-This file contains:
-- SSH username for tunnel connections
-- Socket directory path
-- Base URL for accessing tunnels (HTTP by default, use HTTPS after SSL setup)
-- HTTP URL for non-SSL access (works with IP addresses)
 - HTTPS URL for SSL access (requires domain name and SSL certificate)
 
 ## Server Configuration
@@ -154,17 +221,16 @@ This file contains:
 - **MaxSessions**: 100 concurrent sessions
 - **TCPKeepAlive**: Enabled
 
-**Security Restrictions for Tunnel User:**
+**Security Restrictions for Tunnel Users:**
 - **No Interactive Shell**: PermitTTY disabled
 - **Tunneling Only**: AllowTcpForwarding set to remote only
 - **No Command Execution**: ForceCommand /bin/false
 - **No X11/Agent Forwarding**: Disabled for security
 
-The `tunneluser` account is restricted to SSH tunnel operations only and cannot:
+All tunnel user accounts (both multi-user and legacy) are restricted to SSH tunnel operations only and cannot:
 - Log in with an interactive shell
 - Execute commands directly
 - Forward X11 or SSH agent
-- **TCPKeepAlive**: Enabled
 
 ### System Limits
 
@@ -186,19 +252,28 @@ Optimized for high-concurrency network operations:
 .
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml          # GitHub Actions deployment workflow
+│       └── deploy.yml                    # GitHub Actions deployment
 ├── ansible/
 │   ├── files/
-│   │   ├── scripts/            # Maintenance scripts
-│   │   │   └── cleanup-sockets.sh  # Socket cleanup cron script
-│   │   └── ssh_keys/           # SSH public keys for tunnel users
+│   │   ├── scripts/
+│   │   │   └── cleanup-sockets.sh        # Socket cleanup script
+│   │   ├── ssh_keys/                     # Legacy SSH keys
+│   │   │   ├── README.md
+│   │   │   └── *.pub
+│   │   └── users/                        # Multi-user configs (NEW)
 │   │       ├── README.md
-│   │       └── *.pub           # Public key files
+│   │       ├── alice/                    # User 'alice'
+│   │       │   └── *.pub                 # Alice's SSH keys
+│   │       └── bob/                      # User 'bob'
+│   │           └── *.pub                 # Bob's SSH keys
 │   ├── templates/
-│   │   ├── nginx-tunnel-proxy.conf.j2  # Nginx configuration template
-│   │   └── tunnel_config.yaml.j2       # Tunnel configuration YAML
-│   └── playbook.yml            # Main Ansible playbook
-└── README.md                   # This file
+│   │   ├── nginx-root-domain.conf.j2     # Root domain nginx config
+│   │   ├── nginx-user-subdomain.conf.j2  # User subdomain config
+│   │   ├── nginx-tunnel-proxy.conf.j2    # Legacy nginx config
+│   │   ├── tunnel_config.yaml.j2         # Legacy tunnel config
+│   │   └── user_tunnel_config.yaml.j2    # User tunnel config
+│   └── playbook.yml                      # Main Ansible playbook
+└── README.md                             # This file
 ```
 
 ## Automated Maintenance
@@ -210,12 +285,14 @@ A cron job runs every 5 minutes to check and remove inactive socket files:
 - **Script**: `/usr/local/bin/cleanup-sockets.sh`
 - **Schedule**: Every 5 minutes (`*/5 * * * *`)
 - **Log**: `/var/log/tunnel-cleanup.log`
+- **Scope**: Cleans both legacy and user-specific socket directories
 
 The script uses `lsof` to detect sockets without active SSH connections and removes them automatically. This prevents stale socket files from accumulating when tunnels disconnect unexpectedly.
 
 ## Security Considerations
 
-1. **SSH Key Management**: Only add keys for trusted users
+1. **Multi-User Isolation**: Each user has their own subdomain and socket directory
+2. **SSH Key Management**: Only add keys/users for trusted individuals
 2. **Firewall**: Ensure only necessary ports (22, 80, 443) are open
 3. **Regular Updates**: Keep system packages and SSL certificates up to date
 4. **Monitoring**: Monitor socket directory and active connections

@@ -1,0 +1,9 @@
+{% for user in tunnel_users %}
+Match User {{ user }}
+    PermitTTY no
+    X11Forwarding no
+    AllowAgentForwarding no
+    AllowTcpForwarding remote
+    ForceCommand /bin/false
+    StreamLocalBindMask 0117
+{% endfor %}

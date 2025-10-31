@@ -1,0 +1,134 @@
+# Nginx configuration for user subdomain: {{ username }}.{{ domain_name }}
+# Proxies requests to user-specific Unix sockets
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ username }}.{{ domain_name }};
+
+    # Let's Encrypt challenges
+    location /.well-known/acme-challenge/ {
+        root {{ www_root }};
+    }
+
+    # Proxy to user-specific Unix sockets
+    location ~ ^/start/([^/]+)/?(.*)$ {
+        set $socket_name $1;
+        set $socket_path $2;
+
+        proxy_pass http://unix:{{ tunnel_socket_dir }}/{{ username }}/$socket_name:/$socket_path$is_args$args;
+        
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        
+        # Proxy headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Timeouts
+        proxy_connect_timeout {{ nginx_proxy_timeout }}s;
+        proxy_send_timeout {{ nginx_websocket_timeout }}s;
+        proxy_read_timeout {{ nginx_websocket_timeout }}s;
+        
+        # Buffering settings
+        proxy_buffering off;
+        proxy_cache off;
+        
+        # Keep-alive
+        proxy_socket_keepalive on;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "OK\n";
+        add_header Content-Type text/plain;
+    }
+
+    # User-specific tunnel configuration file
+    location = /tunnel_config.yaml {
+        alias {{ www_root }}/{{ username }}/tunnel_config.yaml;
+        add_header Content-Type application/x-yaml;
+        add_header Access-Control-Allow-Origin *;
+    }
+
+    # Default location - return info page
+    location / {
+        return 200 "User subdomain: {{ username }}\nUse /start/{socket_name}/ to access tunnels\n";
+        add_header Content-Type text/plain;
+    }
+}
+
+{% if ssl_enabled | default(false) %}
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ username }}.{{ domain_name }};
+
+    # SSL certificate paths (managed by certbot)
+    ssl_certificate /etc/letsencrypt/live/{{ username }}.{{ domain_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ username }}.{{ domain_name }}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Proxy to user-specific Unix sockets
+    location ~ ^/start/([^/]+)/?(.*)$ {
+        set $socket_name $1;
+        set $socket_path $2;
+
+        proxy_pass http://unix:{{ tunnel_socket_dir }}/{{ username }}/$socket_name:/$socket_path$is_args$args;
+        
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        
+        # Proxy headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Timeouts
+        proxy_connect_timeout {{ nginx_proxy_timeout }}s;
+        proxy_send_timeout {{ nginx_websocket_timeout }}s;
+        proxy_read_timeout {{ nginx_websocket_timeout }}s;
+        
+        # Buffering settings
+        proxy_buffering off;
+        proxy_cache off;
+        
+        # Keep-alive
+        proxy_socket_keepalive on;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "OK\n";
+        add_header Content-Type text/plain;
+    }
+
+    # User-specific tunnel configuration file
+    location = /tunnel_config.yaml {
+        alias {{ www_root }}/{{ username }}/tunnel_config.yaml;
+        add_header Content-Type application/x-yaml;
+        add_header Access-Control-Allow-Origin *;
+    }
+
+    # Default location - return info page
+    location / {
+        return 200 "User subdomain: {{ username }}\nUse /start/{socket_name}/ to access tunnels\n";
+        add_header Content-Type text/plain;
+    }
+}
+{% endif %}

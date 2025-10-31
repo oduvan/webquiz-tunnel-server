@@ -1,0 +1,8 @@
+{% for user in tunnel_users %}
+{{ user }}           soft    nofile    65536
+{{ user }}           hard    nofile    65536
+{{ user }}           soft    nproc     4096
+{{ user }}           hard    nproc     4096
+{% endfor %}
+*                    soft    nofile    65536
+*                    hard    nofile    65536
