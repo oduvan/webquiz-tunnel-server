@@ -5,6 +5,7 @@
   connection: local
 
   vars:
+    domain_name: webquiz.xyz
     tunnel_user: tunneluser
     tunnel_group: tunneluser
     tunnel_socket_dir: /var/run/tunnels
@@ -139,7 +140,7 @@
 
     - name: Check if SSL certificate exists
       stat:
-        path: /etc/letsencrypt/live/webquiz.xyz/fullchain.pem
+        path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
       register: ssl_cert_check
 
     - name: Set SSL availability fact
@@ -199,7 +200,7 @@
         --non-interactive
         --agree-tos
         --email {{ letsencrypt_email }}
-        -d webquiz.xyz
+        -d {{ domain_name }}
       when: not ssl_available and not ssl_flag_check.stat.exists
       register: certbot_result
       failed_when: false

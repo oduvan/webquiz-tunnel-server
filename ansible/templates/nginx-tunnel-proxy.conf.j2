@@ -9,7 +9,7 @@ map $http_upgrade $connection_upgrade {
 server {
     listen 80;
     listen [::]:80;
-    server_name webquiz.xyz;
+    server_name {{ domain_name }};
 
     # Let's Encrypt challenges
     location /.well-known/acme-challenge/ {
@@ -75,11 +75,11 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name webquiz.xyz;
+    server_name {{ domain_name }};
 
     # SSL certificate paths (managed by certbot)
-    ssl_certificate /etc/letsencrypt/live/webquiz.xyz/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/webquiz.xyz/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ domain_name }}/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
