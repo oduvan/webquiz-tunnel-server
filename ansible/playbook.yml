@@ -13,6 +13,7 @@
     nginx_proxy_timeout: 300
     nginx_websocket_timeout: 3600
     letsencrypt_email: admin@webquiz.xyz
+    ssl_cert_path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
 
   tasks:
     - name: Update apt cache
@@ -144,11 +145,18 @@
         owner: www-data
         group: www-data
 
+    - name: Check if SSL certificate exists
+      stat:
+        path: "{{ ssl_cert_path }}"
+      register: ssl_cert_check
+
     - name: Create nginx configuration for tunnel proxy
       template:
         src: nginx-tunnel-proxy.conf.j2
         dest: /etc/nginx/sites-available/tunnel-proxy
         mode: '0644'
+      vars:
+        ssl_enabled: "{{ ssl_cert_check.stat.exists }}"
       notify: reload nginx
 
     - name: Enable nginx tunnel proxy site
@@ -163,11 +171,6 @@
         path: /etc/nginx/sites-enabled/default
         state: absent
       notify: reload nginx
-
-    - name: Check if SSL certificate exists
-      stat:
-        path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
-      register: ssl_cert_check
 
     - name: Obtain SSL certificate with certbot (if not exists)
       command: >
@@ -184,6 +187,22 @@
       debug:
         msg: "Certbot result: {{ certbot_result }}"
       when: not ssl_cert_check.stat.exists and certbot_result is defined
+
+    - name: Re-check SSL certificate after certbot
+      stat:
+        path: "{{ ssl_cert_path }}"
+      register: ssl_cert_recheck
+      when: not ssl_cert_check.stat.exists
+
+    - name: Update nginx configuration with HTTPS support (if certificate was obtained)
+      template:
+        src: nginx-tunnel-proxy.conf.j2
+        dest: /etc/nginx/sites-available/tunnel-proxy
+        mode: '0644'
+      vars:
+        ssl_enabled: true
+      when: not ssl_cert_check.stat.exists and ssl_cert_recheck.stat.exists | default(false)
+      notify: reload nginx
 
     - name: Ensure nginx is started and enabled
       service:
