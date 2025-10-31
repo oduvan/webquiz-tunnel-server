@@ -13,6 +13,7 @@
     nginx_proxy_timeout: 300
     nginx_websocket_timeout: 3600
     letsencrypt_email: admin@webquiz.xyz
+    ssl_cert_path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
 
   tasks:
     - name: Update apt cache
@@ -146,7 +147,7 @@
 
     - name: Check if SSL certificate exists
       stat:
-        path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+        path: "{{ ssl_cert_path }}"
       register: ssl_cert_check
 
     - name: Create nginx configuration for tunnel proxy
@@ -189,7 +190,7 @@
 
     - name: Re-check SSL certificate after certbot
       stat:
-        path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+        path: "{{ ssl_cert_path }}"
       register: ssl_cert_recheck
       when: not ssl_cert_check.stat.exists
 
@@ -200,7 +201,7 @@
         mode: '0644'
       vars:
         ssl_enabled: true
-      when: not ssl_cert_check.stat.exists and ssl_cert_recheck.stat.exists
+      when: not ssl_cert_check.stat.exists and ssl_cert_recheck.stat.exists | default(false)
       notify: reload nginx
 
     - name: Ensure nginx is started and enabled
