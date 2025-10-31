@@ -48,10 +48,10 @@
 │  │                    Nginx Web Server                      │  │
 │  │                                                           │  │
 │  │  URL Pattern Matching:                                   │  │
-│  │  /wsaio/{socket_name}/path → unix socket proxy          │  │
+│  │  /start/{socket_name}/path → unix socket proxy          │  │
 │  │                                                           │  │
 │  │  Example:                                                │  │
-│  │  /wsaio/myapp/api/users                                  │  │
+│  │  /start/myapp/api/users                                  │  │
 │  │      ↓                                                    │  │
 │  │  unix:/var/run/tunnels/myapp.sock:/api/users            │  │
 │  │                                                           │  │
@@ -69,7 +69,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Internet Users                           │
 │                                                                 │
-│  Browser → https://server.example.com/wsaio/myapp/api/users    │
+│  Browser → https://webquiz.xyz/start/myapp/api/users         │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -79,7 +79,7 @@
 ### 1. Client Creates Tunnel
 
 ```bash
-ssh -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@server.example.com
+ssh -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@webquiz.xyz
 ```
 
 - SSH client authenticates using authorized public key
@@ -90,13 +90,13 @@ ssh -N -R /var/run/tunnels/myapp.sock:localhost:8080 tunneluser@server.example.c
 ### 2. User Makes Request
 
 ```
-GET https://server.example.com/wsaio/myapp/api/users
+GET https://webquiz.xyz/start/myapp/api/users
 ```
 
 ### 3. Nginx Processing
 
 1. **SSL Termination**: HTTPS request decrypted
-2. **Pattern Matching**: `/wsaio/myapp/` matches nginx location block
+2. **Pattern Matching**: `/start/myapp/` matches nginx location block
 3. **Socket Extraction**: Extracts `myapp` as socket name
 4. **Proxy Pass**: Forwards to `unix:/var/run/tunnels/myapp.sock:/api/users`
 5. **Headers Added**: X-Real-IP, X-Forwarded-For, etc.

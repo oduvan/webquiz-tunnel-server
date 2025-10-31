@@ -10,7 +10,7 @@ Settings → Secrets and variables → Actions → New repository secret
 
 | Secret | Value | Example |
 |--------|-------|---------|
-| SERVER_HOST | Your server hostname or IP | `tunnel.example.com` |
+| SERVER_HOST | Your server hostname or IP | `webquiz.xyz` |
 | SERVER_USER | SSH user with sudo | `ubuntu` or `root` |
 | SERVER_SSH_KEY | Private SSH key | Contents of `~/.ssh/id_rsa` |
 | SERVER_PORT | SSH port (optional) | `22` |
@@ -23,7 +23,7 @@ Settings → Secrets and variables → Actions → New repository secret
 4. **Configure SSL** on the server:
    ```bash
    ssh user@server
-   sudo certbot --nginx -d your-domain.com
+   sudo certbot --nginx -d webquiz.xyz
    ```
 5. **Enable HTTPS** in nginx:
    ```bash
@@ -36,17 +36,17 @@ Settings → Secrets and variables → Actions → New repository secret
 
 ```bash
 # On client: Create test tunnel
-ssh -N -R /var/run/tunnels/test.sock:localhost:8080 tunneluser@server
+ssh -N -R /var/run/tunnels/test.sock:localhost:8080 tunneluser@webquiz.xyz
 
 # In browser or curl
-curl https://server/wsaio/test/
+curl https://webquiz.xyz/start/test/
 ```
 
 ## Key Configuration
 
 - **Socket Directory**: `/var/run/tunnels/`
 - **Tunnel User**: `tunneluser`
-- **Nginx Pattern**: `/wsaio/{socket_name}/path/` → socket
+- **Nginx Pattern**: `/start/{socket_name}/path/` → socket
 - **WebSocket Timeout**: 3600s (1 hour)
 - **SSH Keepalive**: 60s interval
 

@@ -11,7 +11,7 @@ This guide walks you through the complete setup process for the WebQuiz Tunnel S
    - SSH access configured
 
 2. **Domain Name:**
-   - A domain name pointing to your server's IP address
+   - webquiz.xyz pointing to your server's IP address
    - Required for Let's Encrypt SSL certificates
 
 3. **GitHub Repository:**
@@ -29,7 +29,7 @@ Go to your GitHub repository settings:
 
 | Secret Name | Description | Example Value |
 |-------------|-------------|---------------|
-| `SERVER_HOST` | Server hostname or IP | `tunnel.example.com` or `192.168.1.100` |
+| `SERVER_HOST` | Server hostname or IP | `webquiz.xyz` |
 | `SERVER_USER` | SSH user with sudo access | `ubuntu`, `root`, or `admin` |
 | `SERVER_SSH_KEY` | Private SSH key for server | Contents of your `~/.ssh/id_rsa` |
 | `SERVER_PORT` | (Optional) SSH port | `22` (default if not set) |
@@ -79,7 +79,7 @@ git push origin main
 **Alternative - Manual deployment:**
 ```bash
 # SSH into your server
-ssh ubuntu@your-server.com
+ssh ubuntu@webquiz.xyz
 
 # Run ansible-pull
 sudo ansible-pull \
@@ -95,7 +95,7 @@ After the initial deployment, SSH into your server and run:
 
 ```bash
 # Replace with your actual domain
-sudo certbot --nginx -d tunnel.example.com
+sudo certbot --nginx -d webquiz.xyz
 
 # Follow the prompts:
 # - Enter your email address
@@ -134,21 +134,21 @@ python3 -m http.server 8080
 # In another terminal, create the tunnel
 ssh -v -N -R /var/run/tunnels/mytest.sock:localhost:8080 \
   -i ~/.ssh/tunnel_key \
-  tunneluser@tunnel.example.com
+  tunneluser@webquiz.xyz
 ```
 
 #### Test Proxy Access
 
 Open a browser and navigate to:
 ```
-https://tunnel.example.com/wsaio/mytest/
+https://webquiz.xyz/start/mytest/
 ```
 
 You should see the directory listing from your Python HTTP server.
 
 **Test with curl:**
 ```bash
-curl https://tunnel.example.com/wsaio/mytest/
+curl https://webquiz.xyz/start/mytest/
 ```
 
 ### 6. Production Setup
@@ -185,7 +185,7 @@ ExecStart=/usr/bin/autossh -M 0 -N \
   -o "ExitOnForwardFailure=yes" \
   -R /var/run/tunnels/myapp.sock:localhost:8080 \
   -i /home/YOUR_USERNAME/.ssh/tunnel_key \
-  tunneluser@tunnel.example.com
+  tunneluser@webquiz.xyz
 Restart=always
 RestartSec=10
 
@@ -234,7 +234,7 @@ sudo systemctl status tunnel-myapp
 **Domain not pointing to server:**
 ```bash
 # Check DNS resolution
-dig +short tunnel.example.com
+dig +short webquiz.xyz
 
 # Should return your server's IP address
 ```
@@ -243,7 +243,7 @@ dig +short tunnel.example.com
 
 **Check SSH connection:**
 ```bash
-ssh -v tunneluser@tunnel.example.com
+ssh -v tunneluser@webquiz.xyz
 # You should be able to connect and see a shell prompt
 ```
 

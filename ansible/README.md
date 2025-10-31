@@ -46,16 +46,16 @@ The template approach allows the same playbook to work across different environm
 The nginx configuration supports **unlimited concurrent tunnels** using a regex-based location block:
 
 ```nginx
-location ~ ^/wsaio/([^/]+)/(.*)$ {
+location ~ ^/start/([^/]+)/(.*)$ {
     set $socket_name $1;
     proxy_pass http://unix:/var/run/tunnels/$socket_name.sock:/$2;
 }
 ```
 
 This pattern dynamically routes requests:
-- `/wsaio/app1/api/data` → `/var/run/tunnels/app1.sock`
-- `/wsaio/app2/health` → `/var/run/tunnels/app2.sock`
-- `/wsaio/service3/ws` → `/var/run/tunnels/service3.sock`
+- `/start/app1/api/data` → `/var/run/tunnels/app1.sock`
+- `/start/app2/health` → `/var/run/tunnels/app2.sock`
+- `/start/service3/ws` → `/var/run/tunnels/service3.sock`
 
 No nginx reconfiguration is needed when adding new tunnels.
 
@@ -188,7 +188,7 @@ For custom server-specific tasks, create a new playbook that imports the main pl
 After the playbook runs, set up SSL certificates:
 
 ```bash
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d webquiz.xyz
 ```
 
 ### 2. Enable HTTPS in Nginx
@@ -207,13 +207,13 @@ sudo systemctl reload nginx
 From a client machine with an authorized SSH key:
 
 ```bash
-ssh -N -R /var/run/tunnels/test.sock:localhost:8000 tunneluser@server.example.com
+ssh -N -R /var/run/tunnels/test.sock:localhost:8000 tunneluser@webquiz.xyz
 ```
 
 ### 4. Verify Proxy
 
 ```bash
-curl http://your-domain.com/wsaio/test/
+curl http://webquiz.xyz/start/test/
 ```
 
 ## Maintenance
