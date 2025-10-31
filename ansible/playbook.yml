@@ -134,6 +134,15 @@
       set_fact:
         tunnel_server_host: "{{ ansible_default_ipv4.address | default(ansible_fqdn | default('your-server')) }}"
 
+    - name: Check if SSL certificate exists
+      stat:
+        path: /etc/letsencrypt/live/webquiz.xyz/fullchain.pem
+      register: ssl_cert_check
+
+    - name: Set SSL availability fact
+      set_fact:
+        ssl_available: "{{ ssl_cert_check.stat.exists }}"
+
     - name: Create tunnel configuration YAML file
       template:
         src: tunnel_config.yaml.j2
@@ -167,6 +176,25 @@
         name: nginx
         state: started
         enabled: yes
+
+    - name: Obtain SSL certificate with certbot (if not exists)
+      command: >
+        certbot certonly --webroot
+        -w /var/www/html
+        --non-interactive
+        --agree-tos
+        --email admin@webquiz.xyz
+        -d webquiz.xyz
+        --deploy-hook "ansible-pull -U https://github.com/oduvan/webquiz-tunnel-server.git -i localhost, ansible/playbook.yml"
+      when: not ssl_available
+      register: certbot_result
+      failed_when: false
+
+    - name: Reload nginx if certificates were obtained
+      service:
+        name: nginx
+        state: reloaded
+      when: not ssl_available and certbot_result.rc == 0
 
     - name: Ensure ssh is started and enabled
       service:

@@ -11,14 +11,31 @@ server {
     listen [::]:80;
     server_name webquiz.xyz;
 
-    # Redirect HTTP to HTTPS (will be configured after Let's Encrypt setup)
-    # Uncomment after running certbot:
-    # return 301 https://$host$request_uri;
-
-    # Temporary location for Let's Encrypt challenges
+    # Let's Encrypt challenges
     location /.well-known/acme-challenge/ {
         root /var/www/html;
     }
+
+{% if ssl_available %}
+    # Redirect HTTP to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name webquiz.xyz;
+
+    # SSL certificate paths (managed by certbot)
+    ssl_certificate /etc/letsencrypt/live/webquiz.xyz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/webquiz.xyz/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+{% else %}
+    # HTTPS not yet configured - serving on HTTP only
+{% endif %}
 
     # Proxy to Unix sockets - pattern: /start/{socket_name}/path or /start/{socket_name}
     location ~ ^/start/([^/]+)/?(.*)$ {
