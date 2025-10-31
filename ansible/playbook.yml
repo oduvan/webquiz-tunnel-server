@@ -13,6 +13,7 @@
     nginx_websocket_timeout: 3600
     letsencrypt_email: admin@webquiz.xyz
     ssl_rerun_flag: /var/lib/webquiz-tunnel/.ssl_setup_attempted
+    repository_url: https://github.com/oduvan/webquiz-tunnel-server.git
 
   tasks:
     - name: Update apt cache
@@ -210,7 +211,10 @@
 
     - name: Warn if certbot failed
       debug:
-        msg: "WARNING: Certbot failed to obtain SSL certificate. HTTPS will not be available. Please check DNS configuration and ensure port 80 is accessible from the internet. Error: {{ certbot_result.stderr | default('No error details available') }}"
+        msg: >
+          WARNING: Certbot failed to obtain SSL certificate. HTTPS will not be available.
+          Please check DNS configuration and ensure port 80 is accessible from the internet.
+          Error: {{ certbot_result.stderr | default('No error details available') }}
       when: not ssl_available and not ssl_flag_check.stat.exists and certbot_result.rc != 0
 
     - name: Create flag file to prevent re-attempts
@@ -223,7 +227,7 @@
     - name: Re-run playbook to enable HTTPS (if certificates were obtained)
       command: >
         ansible-pull
-        -U https://github.com/oduvan/webquiz-tunnel-server.git
+        -U {{ repository_url }}
         -i localhost,
         ansible/playbook.yml
       when: not ssl_available and not ssl_flag_check.stat.exists and certbot_result.rc == 0
