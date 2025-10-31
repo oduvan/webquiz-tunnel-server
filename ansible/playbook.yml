@@ -215,7 +215,11 @@
           WARNING: Certbot failed to obtain SSL certificate. HTTPS will not be available.
           Please check DNS configuration and ensure port 80 is accessible from the internet.
           Error: {{ certbot_result.stderr | default('No error details available') }}
-      when: not ssl_available and not ssl_flag_check.stat.exists and certbot_result.rc != 0
+      when: >
+        not ssl_available and
+        not ssl_flag_check.stat.exists and
+        certbot_result is defined and
+        certbot_result.rc != 0
 
     - name: Create flag file to prevent re-attempts
       file:
@@ -230,7 +234,11 @@
         -U {{ repository_url }}
         -i localhost,
         ansible/playbook.yml
-      when: not ssl_available and not ssl_flag_check.stat.exists and certbot_result.rc == 0
+      when: >
+        not ssl_available and
+        not ssl_flag_check.stat.exists and
+        certbot_result is defined and
+        certbot_result.rc == 0
 
     - name: Ensure ssh is started and enabled
       service:
