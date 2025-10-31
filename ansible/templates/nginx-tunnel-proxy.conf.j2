@@ -20,8 +20,8 @@ server {
         root /var/www/html;
     }
 
-    # Proxy to Unix sockets - pattern: /wsaio/{socket_name}/path or /wsaio/{socket_name}
-    location ~ ^/wsaio/([^/]+)/?(.*)$ {
+    # Proxy to Unix sockets - pattern: /start/{socket_name}/path or /start/{socket_name}
+    location ~ ^/start/([^/]+)/?(.*)$ {
         set $socket_name $1;
         set $socket_path $2;
 

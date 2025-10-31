@@ -12,13 +12,13 @@ This repository contains Ansible configuration for setting up a WebQuiz tunnel s
 
 ## Architecture
 
-The server acts as a reverse proxy that routes requests from `/wsaio/{socket_name}/path/` to Unix domain sockets at `/var/run/tunnels/{socket_name}.sock`.
+The server acts as a reverse proxy that routes requests from `/start/{socket_name}/path/` to Unix domain sockets at `/var/run/tunnels/{socket_name}.sock`.
 
 ### Request Flow
 
 ```
 Client Request → Nginx (HTTPS) → Unix Socket → Application
-https://server.com/wsaio/myapp/api/data → /var/run/tunnels/myapp.sock
+https://server.com/start/myapp/api/data → /var/run/tunnels/myapp.sock
 ```
 
 ## Quick Start
@@ -98,9 +98,9 @@ autossh -M 0 -N -R /var/run/tunnels/myapp:localhost:8080 tunneluser@webquiz.xyz 
 
 Each application will be accessible at its own URL path:
 ```
-https://webquiz.xyz/wsaio/myapp/     → localhost:8080
-https://webquiz.xyz/wsaio/api/       → localhost:3000
-https://webquiz.xyz/wsaio/frontend/  → localhost:5000
+https://webquiz.xyz/start/myapp/     → localhost:8080
+https://webquiz.xyz/start/api/       → localhost:3000
+https://webquiz.xyz/start/frontend/  → localhost:5000
 ```
 
 ### Server Configuration Information
@@ -118,9 +118,9 @@ Example output:
 ```yaml
 username: tunneluser
 socket_directory: /var/run/tunnels
-base_url: https://webquiz.xyz/wsaio/
-http_url: http://webquiz.xyz/wsaio/
-https_url: https://webquiz.xyz/wsaio/
+base_url: https://webquiz.xyz/start/
+http_url: http://webquiz.xyz/start/
+https_url: https://webquiz.xyz/start/
 ```
 
 This file contains:
@@ -249,7 +249,7 @@ sudo tail -f /var/log/auth.log
 
 ```bash
 # Test if nginx can connect to a socket
-curl http://localhost/wsaio/myapp/health
+curl http://localhost/start/myapp/health
 ```
 
 ## Maintenance

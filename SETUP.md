@@ -141,14 +141,14 @@ ssh -v -N -R /var/run/tunnels/mytest.sock:localhost:8080 \
 
 Open a browser and navigate to:
 ```
-https://webquiz.xyz/wsaio/mytest/
+https://webquiz.xyz/start/mytest/
 ```
 
 You should see the directory listing from your Python HTTP server.
 
 **Test with curl:**
 ```bash
-curl https://webquiz.xyz/wsaio/mytest/
+curl https://webquiz.xyz/start/mytest/
 ```
 
 ### 6. Production Setup
