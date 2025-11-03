@@ -8,6 +8,10 @@ on:
       - master
   workflow_dispatch:
 
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy via Ansible Pull
