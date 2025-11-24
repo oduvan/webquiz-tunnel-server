@@ -8,6 +8,7 @@
     domain_name: webquiz.xyz
     tunnel_socket_dir: /var/run/tunnels
     users_dir: "{{ playbook_dir }}/files/users"
+    custom_domains_dir: "{{ playbook_dir }}/files/custom_domains"
     nginx_proxy_timeout: 300
     nginx_websocket_timeout: 3600
     letsencrypt_email: admin@webquiz.xyz
@@ -35,6 +36,57 @@
     - name: Display discovered users
       debug:
         msg: "Discovered users: {{ tunnel_users }}"
+
+    - name: Discover custom domain configuration files
+      find:
+        paths: "{{ custom_domains_dir }}"
+        patterns: "*.yml"
+        file_type: file
+      register: custom_domain_files
+      delegate_to: localhost
+      become: no
+
+    - name: Initialize custom domains raw list
+      set_fact:
+        custom_domains_raw: []
+
+    - name: Read each custom domain configuration
+      include_vars:
+        file: "{{ item.path }}"
+        name: "domain_config_{{ item.path | basename | regex_replace('\\.yml$', '') | regex_replace('[^a-zA-Z0-9]', '_') }}"
+      loop: "{{ custom_domain_files.files }}"
+      delegate_to: localhost
+      become: no
+      when: custom_domain_files.files | length > 0
+
+    - name: Build custom domains list with environment variable lookup
+      set_fact:
+        custom_domains_raw: "{{ custom_domains_raw + [lookup('vars', 'domain_config_' + (item.path | basename | regex_replace('\\.yml$', '') | regex_replace('[^a-zA-Z0-9]', '_')))] }}"
+      loop: "{{ custom_domain_files.files }}"
+      when: custom_domain_files.files | length > 0
+
+    - name: Initialize processed custom domains list
+      set_fact:
+        custom_domains: []
+
+    - name: Process custom domain configurations with environment variables
+      set_fact:
+        custom_domains: "{{ custom_domains + [item | combine({'backend_host': lookup('env', item.backend_host_secret), 'backend_port': lookup('env', item.backend_port_secret)})] }}"
+      loop: "{{ custom_domains_raw }}"
+      when: custom_domains_raw | length > 0
+
+    - name: Validate custom domain configurations
+      assert:
+        that:
+          - item.backend_host | length > 0
+          - item.backend_port | length > 0
+        fail_msg: "Custom domain {{ item.domain }} is missing backend_host or backend_port. Ensure {{ item.backend_host_secret }} and {{ item.backend_port_secret }} are set as environment variables."
+      loop: "{{ custom_domains }}"
+      when: custom_domains | length > 0
+
+    - name: Display discovered custom domains
+      debug:
+        msg: "Discovered custom domains: {{ custom_domains }}"
 
     - name: Update apt cache
       apt:
@@ -238,6 +290,18 @@
         - item.item is defined
       notify: reload nginx
 
+    - name: Create nginx configurations for custom domains
+      template:
+        src: nginx-custom-domain.conf.j2
+        dest: "/etc/nginx/sites-available/{{ item.domain | replace('.', '-') }}-custom"
+        mode: '0644'
+      loop: "{{ custom_domains }}"
+      vars:
+        custom_domain: "{{ item }}"
+      when:
+        - custom_domains | length > 0
+      notify: reload nginx
+
     - name: Enable root domain nginx site
       file:
         src: /etc/nginx/sites-available/tunnel-proxy
@@ -252,6 +316,15 @@
         state: link
       loop: "{{ tunnel_users }}"
       when: tunnel_users | length > 0
+      notify: reload nginx
+
+    - name: Enable custom domain nginx sites
+      file:
+        src: "/etc/nginx/sites-available/{{ item.domain | replace('.', '-') }}-custom"
+        dest: "/etc/nginx/sites-enabled/{{ item.domain | replace('.', '-') }}-custom"
+        state: link
+      loop: "{{ custom_domains }}"
+      when: custom_domains | length > 0
       notify: reload nginx
 
     - name: Remove default nginx site
@@ -284,6 +357,21 @@
         - item.item is defined
         - not item.stat.exists
       register: user_certbot_results
+      failed_when: false
+
+    - name: Obtain SSL certificates for custom domains
+      command: >
+        certbot --nginx
+        --non-interactive
+        --agree-tos
+        --email {{ letsencrypt_email }}
+        -d {{ item.item.domain }}
+      loop: "{{ custom_domain_ssl_checks.results }}"
+      when:
+        - custom_domains | length > 0
+        - item.item is defined
+        - not item.stat.exists
+      register: custom_domain_certbot_results
       failed_when: false
 
     - name: Re-check root SSL certificate

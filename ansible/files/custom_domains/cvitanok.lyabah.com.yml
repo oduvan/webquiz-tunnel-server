@@ -1,0 +1,3 @@
+domain: cvitanok.lyabah.com
+backend_host_secret: JETSON_HOST
+backend_port_secret: JETSON_HTTP_PORT

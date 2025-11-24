@@ -5,8 +5,9 @@ This repository contains Ansible configuration for setting up a WebQuiz tunnel s
 ## Features
 
 - **Multi-User Subdomains**: Each user gets their own subdomain with isolated socket directory
-- **Nginx Reverse Proxy**: Proxies WebSocket and HTTP requests to Unix domain sockets
-- **Let's Encrypt SSL**: Automated HTTPS certificate management per subdomain
+- **Custom Domain Proxying**: Support for custom domains that proxy to HTTP backends (NEW)
+- **Nginx Reverse Proxy**: Proxies WebSocket and HTTP requests to Unix domain sockets or HTTP backends
+- **Let's Encrypt SSL**: Automated HTTPS certificate management per subdomain and custom domain
 - **SSH Tunnel Support**: Dedicated SSH users for creating secure SSH tunnels
 - **High Performance**: Optimized system limits and timeouts for production workloads
 - **Automated Deployment**: GitHub Actions workflow for ansible-pull deployment
@@ -14,7 +15,7 @@ This repository contains Ansible configuration for setting up a WebQuiz tunnel s
 
 ## Architecture
 
-The server supports two modes:
+The server supports three modes:
 
 ### Multi-User Mode (Recommended)
 
@@ -38,6 +39,20 @@ Client Request → Nginx (HTTPS) → Unix Socket → Application
 https://webquiz.xyz/start/myapp/api/data → /var/run/tunnels/myapp
 ```
 
+### Custom Domain Mode (NEW)
+
+Proxy entire custom domains to HTTP backends (e.g., for proxying to local devices or services).
+
+```
+Client Request → Nginx (HTTPS) → HTTP Backend
+https://example.com/ → http://backend-host:backend-port
+```
+
+Each custom domain configuration in `ansible/files/custom_domains/{domain}.yml` creates:
+- Full domain nginx configuration
+- SSL certificate for the domain
+- Reverse proxy to specified backend host:port
+
 ## Quick Start
 
 ### Prerequisites
@@ -50,10 +65,15 @@ https://webquiz.xyz/start/myapp/api/data → /var/run/tunnels/myapp
 
 Configure the following secrets in your GitHub repository (Settings → Secrets and variables → Actions):
 
+**Server Access (Required):**
 - `SERVER_HOST`: Your server's hostname or IP address (e.g., webquiz.xyz)
 - `SERVER_USER`: SSH user with sudo privileges (e.g., `ubuntu`, `root`)
 - `SERVER_SSH_KEY`: Private SSH key for server access
 - `SERVER_PORT`: (Optional) SSH port, defaults to 22
+
+**Custom Domain Backends (Optional):**
+- Add secrets for each custom domain backend as referenced in your domain configuration files
+- Example: `JETSON_HOST`, `JETSON_HTTP_PORT` for cvitanok.lyabah.com
 
 ### Initial Deployment
 
@@ -115,6 +135,37 @@ ssh -N -R /var/run/tunnels/bob/api:localhost:3000 bob@webquiz.xyz
 
 # Access at: https://bob.webquiz.xyz/start/api/
 ```
+
+### Custom Domain Setup (NEW)
+
+Add custom domains that proxy to HTTP backends by creating configuration files in `ansible/files/custom_domains/`:
+
+```bash
+# Create a configuration for cvitanok.lyabah.com
+cat > ansible/files/custom_domains/cvitanok.lyabah.com.yml <<EOF
+domain: cvitanok.lyabah.com
+backend_host_secret: JETSON_HOST
+backend_port_secret: JETSON_HTTP_PORT
+EOF
+
+# Commit and push
+git add ansible/files/custom_domains/cvitanok.lyabah.com.yml
+git commit -m "Add custom domain cvitanok.lyabah.com"
+git push
+```
+
+**Configure GitHub Secrets:**
+
+Add the backend host and port secrets referenced in your configuration:
+- `JETSON_HOST`: Backend server IP or hostname (e.g., `192.168.1.100`)
+- `JETSON_HTTP_PORT`: Backend server port (e.g., `8080`)
+
+After deployment:
+- Domain `cvitanok.lyabah.com` is configured in nginx
+- SSL certificate for `cvitanok.lyabah.com` is obtained
+- All requests to `https://cvitanok.lyabah.com/` are proxied to `http://JETSON_HOST:JETSON_HTTP_PORT/`
+
+**Important**: The domain DNS A record must point to your server's IP address.
 
 ### Legacy Single-User Setup
 
@@ -260,15 +311,19 @@ Optimized for high-concurrency network operations:
 │   │   ├── ssh_keys/                     # Legacy SSH keys
 │   │   │   ├── README.md
 │   │   │   └── *.pub
-│   │   └── users/                        # Multi-user configs (NEW)
+│   │   ├── users/                        # Multi-user configs
+│   │   │   ├── README.md
+│   │   │   ├── alice/                    # User 'alice'
+│   │   │   │   └── *.pub                 # Alice's SSH keys
+│   │   │   └── bob/                      # User 'bob'
+│   │   │       └── *.pub                 # Bob's SSH keys
+│   │   └── custom_domains/               # Custom domain configs (NEW)
 │   │       ├── README.md
-│   │       ├── alice/                    # User 'alice'
-│   │       │   └── *.pub                 # Alice's SSH keys
-│   │       └── bob/                      # User 'bob'
-│   │           └── *.pub                 # Bob's SSH keys
+│   │       └── *.yml                     # Domain config files
 │   ├── templates/
 │   │   ├── nginx-root-domain.conf.j2     # Root domain nginx config
 │   │   ├── nginx-user-subdomain.conf.j2  # User subdomain config
+│   │   ├── nginx-custom-domain.conf.j2   # Custom domain config (NEW)
 │   │   ├── nginx-tunnel-proxy.conf.j2    # Legacy nginx config
 │   │   ├── tunnel_config.yaml.j2         # Legacy tunnel config
 │   │   └── user_tunnel_config.yaml.j2    # User tunnel config
