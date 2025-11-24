@@ -300,7 +300,10 @@
     - name: Create nginx configurations for custom domains
       template:
         src: nginx-custom-domain.conf.j2
-        dest: "/etc/nginx/sites-available/{{ item.item.domain | replace('.', '-') }}-custom"
+        dest: >-
+          /etc/nginx/sites-available/{{
+            item.item.domain | replace('.', '-')
+          }}-custom
         mode: '0644'
       loop: "{{ custom_domain_ssl_checks.results }}"
       vars:
@@ -329,8 +332,14 @@
 
     - name: Enable custom domain nginx sites
       file:
-        src: "/etc/nginx/sites-available/{{ item.item.domain | replace('.', '-') }}-custom"
-        dest: "/etc/nginx/sites-enabled/{{ item.item.domain | replace('.', '-') }}-custom"
+        src: >-
+          /etc/nginx/sites-available/{{
+            item.item.domain | replace('.', '-')
+          }}-custom
+        dest: >-
+          /etc/nginx/sites-enabled/{{
+            item.item.domain | replace('.', '-')
+          }}-custom
         state: link
       loop: "{{ custom_domain_ssl_checks.results }}"
       when:
@@ -435,7 +444,10 @@
     - name: Update custom domain nginx with HTTPS support
       template:
         src: nginx-custom-domain.conf.j2
-        dest: "/etc/nginx/sites-available/{{ item.item.domain | replace('.', '-') }}-custom"
+        dest: >-
+          /etc/nginx/sites-available/{{
+            item.item.domain | replace('.', '-')
+          }}-custom
         mode: '0644'
       loop: "{{ custom_domain_ssl_rechecks.results }}"
       vars:
