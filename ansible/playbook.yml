@@ -46,7 +46,7 @@
       delegate_to: localhost
       become: no
 
-    - name: Initialize custom domains list
+    - name: Initialize custom domains raw list
       set_fact:
         custom_domains_raw: []
 
@@ -65,7 +65,7 @@
       loop: "{{ custom_domain_files.files }}"
       when: custom_domain_files.files | length > 0
 
-    - name: Initialize custom domains list
+    - name: Initialize processed custom domains list
       set_fact:
         custom_domains: []
 
