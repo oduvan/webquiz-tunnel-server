@@ -1,0 +1,19 @@
+# Nginx configuration for custom domain: {{ custom_domain.domain }}
+# Temporary HTTP-only configuration for SSL certificate acquisition
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ custom_domain.domain }};
+
+    # Let's Encrypt challenges
+    location /.well-known/acme-challenge/ {
+        root {{ www_root }};
+    }
+
+    # Temporary response for other requests
+    location / {
+        return 200 "Custom domain {{ custom_domain.domain }} - SSL certificate setup in progress\n";
+        add_header Content-Type text/plain;
+    }
+}

@@ -267,13 +267,6 @@
       loop: "{{ tunnel_users }}"
       when: tunnel_users | length > 0
 
-    - name: Check custom domain SSL certificates
-      stat:
-        path: "/etc/letsencrypt/live/{{ item.domain }}/fullchain.pem"
-      register: custom_domain_ssl_checks
-      loop: "{{ custom_domains }}"
-      when: custom_domains | length > 0
-
     - name: Create nginx configuration for root domain
       template:
         src: nginx-root-domain.conf.j2
@@ -297,7 +290,31 @@
         - item.item is defined
       notify: reload nginx
 
-    - name: Create nginx configurations for custom domains
+    - name: Check if custom domain SSL certificates exist
+      stat:
+        path: "/etc/letsencrypt/live/{{ item.domain }}/fullchain.pem"
+      register: custom_domain_ssl_checks
+      loop: "{{ custom_domains }}"
+      when: custom_domains | length > 0
+
+    - name: Create temporary HTTP-only nginx configs for custom domains without SSL
+      template:
+        src: nginx-custom-domain-http.conf.j2
+        dest: >-
+          /etc/nginx/sites-available/{{
+            item.item.domain | replace('.', '-')
+          }}-custom
+        mode: '0644'
+      loop: "{{ custom_domain_ssl_checks.results }}"
+      vars:
+        custom_domain: "{{ item.item }}"
+      when:
+        - custom_domains | length > 0
+        - item.item is defined
+        - not item.stat.exists
+      notify: reload nginx
+
+    - name: Create SSL-enabled nginx configs for custom domains with existing SSL
       template:
         src: nginx-custom-domain.conf.j2
         dest: >-
@@ -308,10 +325,10 @@
       loop: "{{ custom_domain_ssl_checks.results }}"
       vars:
         custom_domain: "{{ item.item }}"
-        ssl_enabled: "{{ item.stat.exists }}"
       when:
         - custom_domains | length > 0
         - item.item is defined
+        - item.stat.exists
       notify: reload nginx
 
     - name: Enable root domain nginx site
@@ -332,19 +349,11 @@
 
     - name: Enable custom domain nginx sites
       file:
-        src: >-
-          /etc/nginx/sites-available/{{
-            item.item.domain | replace('.', '-')
-          }}-custom
-        dest: >-
-          /etc/nginx/sites-enabled/{{
-            item.item.domain | replace('.', '-')
-          }}-custom
+        src: "/etc/nginx/sites-available/{{ item.domain | replace('.', '-') }}-custom"
+        dest: "/etc/nginx/sites-enabled/{{ item.domain | replace('.', '-') }}-custom"
         state: link
-      loop: "{{ custom_domain_ssl_checks.results }}"
-      when:
-        - custom_domains | length > 0
-        - item.item is defined
+      loop: "{{ custom_domains }}"
+      when: custom_domains | length > 0
       notify: reload nginx
 
     - name: Remove default nginx site
@@ -352,6 +361,9 @@
         path: /etc/nginx/sites-enabled/default
         state: absent
       notify: reload nginx
+
+    - name: Flush handlers to ensure nginx is reloaded before certbot
+      meta: flush_handlers
 
     - name: Obtain SSL certificate for root domain
       command: >
@@ -434,14 +446,7 @@
         - item.stat.exists | default(false)
       notify: reload nginx
 
-    - name: Re-check custom domain SSL certificates
-      stat:
-        path: "/etc/letsencrypt/live/{{ item.domain }}/fullchain.pem"
-      register: custom_domain_ssl_rechecks
-      loop: "{{ custom_domains }}"
-      when: custom_domains | length > 0
-
-    - name: Update custom domain nginx with HTTPS support
+    - name: Create final SSL-enabled nginx configs for custom domains
       template:
         src: nginx-custom-domain.conf.j2
         dest: >-
@@ -449,14 +454,13 @@
             item.item.domain | replace('.', '-')
           }}-custom
         mode: '0644'
-      loop: "{{ custom_domain_ssl_rechecks.results }}"
+      loop: "{{ custom_domain_ssl_checks.results }}"
       vars:
         custom_domain: "{{ item.item }}"
-        ssl_enabled: "{{ item.stat.exists }}"
       when:
         - custom_domains | length > 0
         - item.item is defined
-        - item.stat.exists | default(false)
+        - not item.stat.exists
       notify: reload nginx
 
     - name: Ensure nginx is started and enabled
