@@ -65,17 +65,24 @@
       loop: "{{ custom_domain_files.files }}"
       when: custom_domain_files.files | length > 0
 
+    - name: Initialize custom domains list
+      set_fact:
+        custom_domains: []
+
     - name: Process custom domain configurations with environment variables
       set_fact:
-        custom_domains: >-
-          {% set result = [] %}
-          {% for domain_config in custom_domains_raw %}
-          {% set _ = result.append(domain_config | combine({
-            'backend_host': lookup('env', domain_config.backend_host_secret) | default(''),
-            'backend_port': lookup('env', domain_config.backend_port_secret) | default('')
-          })) %}
-          {% endfor %}
-          {{ result }}
+        custom_domains: "{{ custom_domains + [item | combine({'backend_host': lookup('env', item.backend_host_secret), 'backend_port': lookup('env', item.backend_port_secret)})] }}"
+      loop: "{{ custom_domains_raw }}"
+      when: custom_domains_raw | length > 0
+
+    - name: Validate custom domain configurations
+      assert:
+        that:
+          - item.backend_host | length > 0
+          - item.backend_port | length > 0
+        fail_msg: "Custom domain {{ item.domain }} is missing backend_host or backend_port. Ensure {{ item.backend_host_secret }} and {{ item.backend_port_secret }} are set as environment variables."
+      loop: "{{ custom_domains }}"
+      when: custom_domains | length > 0
 
     - name: Display discovered custom domains
       debug:
