@@ -58,8 +58,12 @@ jobs:
               sudo apt-get install -y ansible
             fi
 
+            # Export environment variables for custom domains
+            export JETSON_HOST="${{ secrets.JETSON_HOST }}"
+            export JETSON_HTTP_PORT="${{ secrets.JETSON_HTTP_PORT }}"
+
             # Run ansible-pull
-            sudo ansible-pull \
+            sudo -E ansible-pull \
               -U https://github.com/${{ github.repository }}.git \
               -C ${{ github.sha }} \
               -i localhost, \
