@@ -46,20 +46,24 @@
       delegate_to: localhost
       become: no
 
-    - name: Read custom domain configurations
-      set_fact:
-        custom_domains_raw: >-
-          {{ custom_domain_files.files |
-             map(attribute='path') |
-             map('lookup', 'file') |
-             map('from_yaml') |
-             list }}
-      when: custom_domain_files.files | length > 0
-
-    - name: Set empty custom domains raw list if none found
+    - name: Initialize custom domains list
       set_fact:
         custom_domains_raw: []
-      when: custom_domain_files.files | length == 0 or custom_domain_files.files is not defined
+
+    - name: Read each custom domain configuration
+      include_vars:
+        file: "{{ item.path }}"
+        name: "domain_config_{{ item.path | basename | regex_replace('\\.yml$', '') | regex_replace('[^a-zA-Z0-9]', '_') }}"
+      loop: "{{ custom_domain_files.files }}"
+      delegate_to: localhost
+      become: no
+      when: custom_domain_files.files | length > 0
+
+    - name: Build custom domains list with environment variable lookup
+      set_fact:
+        custom_domains_raw: "{{ custom_domains_raw + [lookup('vars', 'domain_config_' + (item.path | basename | regex_replace('\\.yml$', '') | regex_replace('[^a-zA-Z0-9]', '_')))] }}"
+      loop: "{{ custom_domain_files.files }}"
+      when: custom_domain_files.files | length > 0
 
     - name: Process custom domain configurations with environment variables
       set_fact:
@@ -75,7 +79,7 @@
 
     - name: Display discovered custom domains
       debug:
-        msg: "Discovered custom domains: {{ custom_domains | map(attribute='domain') | list }}"
+        msg: "Discovered custom domains: {{ custom_domains }}"
 
     - name: Update apt cache
       apt:
