@@ -22,6 +22,7 @@
         file_type: directory
         recurse: no
       register: user_directories
+      delegate_to: localhost
       become: no
 
     - name: Extract user list from directories
@@ -42,6 +43,7 @@
         patterns: "*.yml"
         file_type: file
       register: custom_domain_files
+      delegate_to: localhost
       become: no
 
     - name: Initialize custom domains raw list
@@ -53,6 +55,7 @@
         file: "{{ item.path }}"
         name: "domain_config_{{ item.path | basename | regex_replace('\\.yml$', '') | regex_replace('[^a-zA-Z0-9]', '_') }}"
       loop: "{{ custom_domain_files.files }}"
+      delegate_to: localhost
       become: no
       when: custom_domain_files.files | length > 0
 
@@ -144,6 +147,7 @@
         patterns: "*.pub"
       register: user_ssh_keys
       loop: "{{ tunnel_users }}"
+      delegate_to: localhost
       become: no
       when: tunnel_users | length > 0
 
@@ -293,7 +297,24 @@
       loop: "{{ custom_domains }}"
       when: custom_domains | length > 0
 
-    - name: Create nginx configs for custom domains
+    - name: Create temporary HTTP-only nginx configs for custom domains without SSL
+      template:
+        src: nginx-custom-domain-http.conf.j2
+        dest: >-
+          /etc/nginx/sites-available/{{
+            item.item.domain | replace('.', '-')
+          }}-custom
+        mode: '0644'
+      loop: "{{ custom_domain_ssl_checks.results }}"
+      vars:
+        custom_domain: "{{ item.item }}"
+      when:
+        - custom_domains | length > 0
+        - item.item is defined
+        - not item.stat.exists
+      notify: reload nginx
+
+    - name: Create SSL-enabled nginx configs for custom domains with existing SSL
       template:
         src: nginx-custom-domain.conf.j2
         dest: >-
@@ -304,10 +325,10 @@
       loop: "{{ custom_domain_ssl_checks.results }}"
       vars:
         custom_domain: "{{ item.item }}"
-        ssl_enabled: "{{ item.stat.exists }}"
       when:
         - custom_domains | length > 0
         - item.item is defined
+        - item.stat.exists
       notify: reload nginx
 
     - name: Enable root domain nginx site
@@ -460,6 +481,11 @@
         name: ssh
         state: started
         enabled: yes
+
+    - name: Install lsof for socket checking
+      apt:
+        name: lsof
+        state: present
 
     - name: Deploy socket cleanup script
       copy:
