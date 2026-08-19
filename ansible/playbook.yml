@@ -464,6 +464,7 @@
       loop: "{{ custom_domain_ssl_rechecks.results }}"
       vars:
         custom_domain: "{{ item.item }}"
+        ssl_enabled: "{{ item.stat.exists }}"
       when:
         - custom_domains | length > 0
         - item.item is defined
