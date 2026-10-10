@@ -277,6 +277,7 @@ base_url: https://webquiz.xyz/start/
 - **Tunneling Only**: AllowTcpForwarding set to remote only
 - **No Command Execution**: ForceCommand /bin/false
 - **No X11/Agent Forwarding**: Disabled for security
+- **Reconnect with the same socket name**: `StreamLocalBindUnlink yes` - sshd does not remove a socket file when a tunnel closes, and the file stays even while sshd still holds a dead connection. Without this option a client with a fixed socket name (e.g. WebQuiz `tunnel.socket_name`) cannot reconnect until that connection times out and the cleanup job removes the file. With it, a new tunnel replaces the old file at once. A second client that uses the same name takes the name over from the first one
 
 All tunnel user accounts (both multi-user and legacy) are restricted to SSH tunnel operations only and cannot:
 - Log in with an interactive shell

@@ -266,6 +266,8 @@ Match User tunneluser
     AllowAgentForwarding no       # No SSH agent forwarding
     AllowTcpForwarding remote     # Only remote port forwarding (tunnels)
     ForceCommand /bin/false       # No command execution
+    StreamLocalBindMask 0117      # Socket files readable/writable by owner and group (nginx)
+    StreamLocalBindUnlink yes     # A new tunnel replaces an old socket file with the same name
 ```
 
 **What this means:**
@@ -274,6 +276,7 @@ Match User tunneluser
 - ✗ User cannot execute commands on the server
 - ✗ User cannot forward X11 or SSH agent
 - ✗ User cannot do local port forwarding
+- ✓ A client with a fixed socket name can reconnect at once: the socket file left by its previous (closed or dead) connection is replaced
 
 This ensures the account is strictly limited to its intended purpose: creating reverse SSH tunnels.
 
