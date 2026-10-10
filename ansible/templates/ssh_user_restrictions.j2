@@ -6,4 +6,7 @@ Match User {{ user }}
     AllowTcpForwarding remote
     ForceCommand /bin/false
     StreamLocalBindMask 0117
+    # Replace a socket file left at the same path by a closed or dead connection,
+    # so clients with a fixed socket name can reconnect at once
+    StreamLocalBindUnlink yes
 {% endfor %}
